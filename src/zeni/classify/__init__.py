@@ -1,1 +1,1 @@
-from .rules import load_rules, classify_df
+from .rules import classify_df, load_rules

@@ -1,11 +1,13 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Any
+
 import re
-import yaml
+from dataclasses import dataclass
+
 import pandas as pd
+import yaml
 
 DEFAULT_CATEGORY = "Uncategorized"
+
 
 @dataclass(slots=True, frozen=True)
 class Rules:
@@ -15,8 +17,9 @@ class Rules:
     amount_rules: dict[str, list[dict[str, float]]]
     default_category: str = DEFAULT_CATEGORY
 
+
 def load_rules(path: str) -> Rules:
-    with open(path, "r") as f:
+    with open(path) as f:
         data = yaml.safe_load(f) or {}
     return Rules(
         categories=list(data.get("categories", [])),
@@ -25,6 +28,7 @@ def load_rules(path: str) -> Rules:
         amount_rules={k: list(v) for k, v in (data.get("amount_rules") or {}).items()},
         default_category=data.get("default_category", DEFAULT_CATEGORY),
     )
+
 
 def _match_description(desc: str, rules: Rules) -> str | None:
     d = desc.lower()
@@ -36,6 +40,7 @@ def _match_description(desc: str, rules: Rules) -> str | None:
             return cat
     return None
 
+
 def _match_amount(amount: float, rules: Rules) -> str | None:
     for cat, lst in rules.amount_rules.items():
         for r in lst:
@@ -45,12 +50,13 @@ def _match_amount(amount: float, rules: Rules) -> str | None:
                 return cat
     return None
 
+
 def classify_row(row: pd.Series, rules: Rules) -> str:
     # 1) explicit category preserved
     if isinstance(row.get("category"), str) and row["category"].strip():
         return row["category"]
     # 2) description rules
-    desc_cat = _match_description(str(row.get("description","")), rules)
+    desc_cat = _match_description(str(row.get("description", "")), rules)
     if desc_cat:
         return desc_cat
     # 3) amount rules
@@ -63,6 +69,7 @@ def classify_row(row: pd.Series, rules: Rules) -> str:
         return amt_cat
     # 4) fallback
     return rules.default_category
+
 
 def classify_df(df: pd.DataFrame, rules: Rules) -> pd.DataFrame:
     out = df.copy()

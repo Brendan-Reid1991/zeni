@@ -1,9 +1,13 @@
 from __future__ import annotations
+
 import pandas as pd
-from .base import IngestAdapter, GenericAdapter
+
+from .base import GenericAdapter, IngestAdapter
+
 
 class ExampleBankAdapter(IngestAdapter):
     """Example: maps ExampleBank columns to standard schema."""
+
     def to_standard(self, df: pd.DataFrame) -> pd.DataFrame:
         out = pd.DataFrame()
         out["date"] = pd.to_datetime(df["Transaction Date"]).dt.date
@@ -16,6 +20,7 @@ class ExampleBankAdapter(IngestAdapter):
         out["account"] = df.get("Account Name", "ExampleBank")
         out["currency"] = df.get("Currency", None)
         return out
+
 
 ADAPTERS = {
     "generic": GenericAdapter(),

@@ -1,12 +1,14 @@
-from budgeter.classify.rules import load_rules, classify_df
-import pandas as pd
 from io import StringIO
+
+import pandas as pd
+from budgeter.classify.rules import classify_df, load_rules
 
 CSV = """date,description,amount,account,currency
 2025-07-01,SALARY ACME LTD,2500.00,Current,GBP
 2025-07-02,TESCO EXTRA,-54.23,Current,GBP
 2025-07-03,STARBUCKS,-3.25,Current,GBP
 """
+
 
 def test_rules_keywords(tmp_path):
     rules = load_rules("data/samples/sample_rules.yaml")

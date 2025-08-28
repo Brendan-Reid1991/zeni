@@ -1,10 +1,10 @@
 [project]
-name = "budgeter"
+name = "zeni"
 version = "0.1.0"
 description = "Multi-bank budgeting: ingest statements, auto-classify, and review on a timeline."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
-authors = [{ name = "Your Name" }]
+authors = [{ name = "Brendan Reid" }]
 license = { text = "MIT" }
 dependencies = [
   "pandas>=2.2",
@@ -24,12 +24,8 @@ dev = [
   "types-python-dateutil>=2.9.0.20240316",
 ]
 
-[tool.uv]
-# If you use uv, you can do: uv add -E ui streamlit
-# This section exists to play nicely with uv but is optional.
-
 [tool.ruff]
-line-length = 100
+line-length = 89
 target-version = "py311"
 fix = true
 select = ["E","F","I","UP","B","C90"]
