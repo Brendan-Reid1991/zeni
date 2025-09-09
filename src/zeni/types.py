@@ -1,20 +1,40 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from datetime import date
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import date
 
 
-class Direction(str, Enum):
-    OUTGOING = "outgoing"
-    INCOMING = "incoming"
-    INTERNAL = "internal"
+@dataclass(slots=True, frozen=True)
+class Transaction:
+    """Store the important details of a transaction."""
+
+    date: date
+    description: str
+    amount: float
+    account: str
+    currency: str | None = None
+    uuid: str | None = None
 
 
-class Transaction(str, Enum): ...
+class Account(str, Enum):
+    """Account enum."""
+
+    DEBIT = "debit"
+    CREDIT = "credit"
+    SAVINGS = "savings"
+    ISA = "isa"
 
 
-class Outgoing(Transaction):
+class Payment(str, Enum): ...
+
+
+class Outgoing(Payment):
+    """Outgoing payment categories."""
+
     RENT = "rent"
     BILL = "bill"
     SUBSCRIPTION = "subscription"
@@ -23,9 +43,14 @@ class Outgoing(Transaction):
     FEE = "fee"
     LOAN_PAYMENT = "loan_payment"
     CREDIT_CARD = "credit_card"
+    LEISURE = "leisure"
+    UNCATEGORISED = "uncategorised"
+    GROCERIES = "groceries"
 
 
-class Incoming(Transaction):
+class Incoming(Payment):
+    """Incoming payment categories."""
+
     SALARY = "salary"
     INTEREST = "interest"
     REFUND = "refund"
@@ -33,34 +58,19 @@ class Incoming(Transaction):
     CASH_DEPOSIT = "cash_deposit"
 
 
-class Internal(Transaction):
+class Internal(Payment):
+    """Internal payment categories."""
+
     TRANSFER = "transfer"
+    SAVINGS = "savings"
     ROUNDUP = "roundup"
 
 
-@dataclass(slots=True, frozen=True)
-class Transaction:
-    date: date
-    description: str
-    amount: float  # outflow negative, inflow positive
-    account: str
-    currency: Optional[str] = None
-
-    # Structural classification
-    direction: Optional[Direction] = None
-    kind: Optional[Kind] = None
-    method: Optional[Method] = None
-
-    # For transfers/refunds/linking related legs
-    counterparty: Optional[str] = None  # merchant/employer/bank name
-    related_id: Optional[str] = None  # to link refund ↔ original, or transfer legs
-    transfer_group_id: Optional[str] = (
-        None  # stable id for both legs of an internal transfer
-    )
-
-    # User-facing budgeting label (your existing pipeline fills this)
-    category: Optional[str] = None
-
-    # State
-    is_pending: bool = False
-    notes: Optional[str] = None
+class StandardColumns(str, Enum):
+    DATE = "date"
+    TIME = "time"
+    TYPE = "type"
+    CATEGORY = "category"
+    NAME = "name"
+    AMOUNT = "amount"
+    CURRENCY = "currency"

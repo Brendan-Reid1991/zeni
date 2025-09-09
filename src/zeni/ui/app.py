@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import base64
 import io
-from datetime import datetime, date
-from typing import Any, List, Optional
+from datetime import date, datetime
+from typing import Any
 
 import pandas as pd
 import plotly.express as px
@@ -31,12 +31,12 @@ class Transaction(BaseModel):
     date: str | date | datetime
     name: str
     amount: float
-    currency: Optional[str] = "GBP"
-    type: Optional[str] = None
+    currency: str | None = "GBP"
+    type: str | None = None
 
 
 class ClassifyRequest(BaseModel):
-    transactions: List[Transaction]
+    transactions: list[Transaction]
 
 
 def _coerce_date(v: Any) -> date:
@@ -110,7 +110,7 @@ def classify_transactions(df: pd.DataFrame) -> pd.DataFrame:
     # Add/overwrite predicted category column
     out["category"] = [
         _simple_rules_category(str(n), float(a))
-        for n, a in zip(out["name"], out["amount"])
+        for n, a in zip(out["name"], out["amount"], strict=False)
     ]
     return out
 
@@ -134,7 +134,7 @@ def root():
 
 # Dash runs on Flask internally; mount it under FastAPI via WSGI
 import dash  # noqa: E402
-from dash import Dash, Input, Output, State, dcc, html, dash_table  # noqa: E402
+from dash import Dash, Input, Output, State, dash_table, dcc, html  # noqa: E402
 
 
 def make_dash_app() -> Dash:

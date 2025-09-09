@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .base import GenericAdapter, IngestAdapter
+from .parser import GenericAdapter, IngestAdapter
 
 
 class ExampleBankAdapter(IngestAdapter):
