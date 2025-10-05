@@ -40,6 +40,7 @@ class Outgoing(Payment):
     SUBSCRIPTION = "subscription"
     CASH_WITHDRAWAL = "cash_withdrawal"
     TRANSFER_OUT_EXTERNAL = "transfer_out_external"
+    INVESTMENT = "investment"
     FEE = "fee"
     LOAN_PAYMENT = "loan_payment"
     CREDIT_CARD = "credit_card"
@@ -56,6 +57,7 @@ class Incoming(Payment):
     REFUND = "refund"
     TRANSFER_IN_EXTERNAL = "transfer_in_external"
     CASH_DEPOSIT = "cash_deposit"
+    INCOME = "income"
 
 
 class Internal(Payment):
@@ -69,8 +71,29 @@ class Internal(Payment):
 class StandardColumns(str, Enum):
     DATE = "date"
     TIME = "time"
-    TYPE = "type"
     CATEGORY = "category"
     NAME = "name"
     AMOUNT = "amount"
     CURRENCY = "currency"
+
+from typing import Iterable, Iterator, TypeVar, Generic
+
+T = TypeVar('T')
+
+class Addressable(Generic[T]):
+    def __init__(self, iterable: Iterable[T]):
+        self._items = list(iterable)
+        for item in self._items:
+            if isinstance(item, str):
+                attr_name = str(item).replace(' ', '_').replace('-', '_')
+                if attr_name.isidentifier():
+                    setattr(self, attr_name, item)
+    
+    def __iter__(self) -> Iterator[T]:
+        return iter(self._items)
+    
+    def __len__(self) -> int:
+        return len(self._items)
+    
+    def __getitem__(self, index):
+        return self._items[index]
