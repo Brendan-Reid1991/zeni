@@ -1,74 +1,51 @@
-from collections.abc import Mapping
-from enum import Enum
-from typing import ClassVar
-
-from zeni.parse.banks.base import Bank
-from zeni.types import Incoming, Internal, Outgoing, Payment, StandardColumns
+from zeni.basic_types import Addressable, Incoming, Internal, Outgoing, StandardColumns
+from zeni.parse.banks.base import Bank, BankRegistry
 
 
+@BankRegistry.register
 class Monzo(Bank):
-    class Columns(str, Enum):
-        NAME = "name"
-        DATE = "date"
-        TIME = "time"
-        TYPE = "TYPE"
-        CATEGORY = "category"
-        AMOUNT = "amount"
-        CURRENCY = "currency"
+    _columns = Addressable({"name", "date", "time", "category", "amount", "currency"})
+    _categories = Addressable(
+        {
+            "bills",
+            "eating_out",
+            "entertainment",
+            "general",
+            "groceries",
+            "income",
+            "personal_care",
+            "savings",
+            "shopping",
+            "transfers",
+        }
+    )
 
-    class Types(str, Enum):
-        CARD_PAYMENT = "card payment"
-        DIRECT_DEBIT = "direct debit"
-        FASTER_PAYMENT = "faster payment"
-        FLEX = "flex"
-        MONZO_TO_MONZO = "monzo-to-monzo"
-        POT_TRANSFER = "pot transfer"
-        OVERDRAFT = "overdraft"
+    @classmethod
+    def column_map(cls) -> dict[str, str]:
+        return {
+            cls._columns.name: StandardColumns.NAME,
+            cls._columns.amount: StandardColumns.AMOUNT,
+            cls._columns.date: StandardColumns.DATE,
+            cls._columns.time: StandardColumns.TIME,
+            cls._columns.category: StandardColumns.CATEGORY,
+            cls._columns.currency: StandardColumns.CURRENCY,
+        }
 
-    class Categories(str, Enum):
-        BILLs = "bills"
-        EATING_OUT = "eating_out"
-        ENTERTAINMENT = "entertainment"
-        GENERAL = "general"
-        GROCERIES = "groceries"
-        INCOME = "income"
-        PERSONAL_CARE = "personal_care"
-        SAVINGS = "savings"
-        SHOPPING = "shopping"
-        TRANSFERS = "transfers"
+    @classmethod
+    def category_map(cls) -> dict[str, str]:
+        return {
+            cls._categories.bills: Outgoing.BILL,
+            cls._categories.eating_out: Outgoing.LEISURE,
+            cls._categories.entertainment: Outgoing.LEISURE,
+            cls._categories.general: Outgoing.UNCATEGORISED,
+            cls._categories.groceries: Outgoing.GROCERIES,
+            cls._categories.income: Incoming.INCOME,
+            cls._categories.personal_care: Outgoing.LEISURE,
+            cls._categories.savings: Internal.SAVINGS,
+            cls._categories.shopping: Outgoing.LEISURE,
+            cls._categories.tranfers: Internal.TRANSFER,
+        }
 
-    column_map: ClassVar[Mapping[Columns, StandardColumns]] = {
-        Columns.AMOUNT: StandardColumns.AMOUNT,
-        Columns.CATEGORY: StandardColumns.CATEGORY,
-        Columns.CURRENCY: StandardColumns.CURRENCY,
-        Columns.DATE: StandardColumns.DATE,
-        Columns.TIME: StandardColumns.TIME,
-        Columns.NAME: StandardColumns.NAME,
-        Columns.TYPE: StandardColumns.TYPE,
-    }
 
-    type_map: ClassVar[Mapping[Types, Payment]] = {
-        Internal: (Types.POT_TRANSFER,),
-        Outgoing: (
-            Types.MONZO_TO_MONZO,
-            Types.CARD_PAYMENT,
-            Types.DIRECT_DEBIT,
-        ),
-        Incoming: {
-            Types.MONZO_TO_MONZO,
-            Types.FASTER_PAYMENT,
-        },
-    }
-
-    category_map: ClassVar[Mapping[Categories, Incoming | Outgoing | Internal]] = {
-        Categories.BILLs: Outgoing.BILL,
-        Categories.EATING_OUT: Outgoing.LEISURE,
-        Categories.ENTERTAINMENT: Outgoing.LEISURE,
-        Categories.GENERAL: Outgoing.UNCATEGORISED,
-        Categories.GROCERIES: Outgoing.GROCERIES,
-        Categories.INCOME: Incoming.TRANSFER_IN_EXTERNAL,
-        Categories.PERSONAL_CARE: Outgoing.LEISURE,
-        Categories.SAVINGS: Internal.SAVINGS,
-        Categories.SHOPPING: Outgoing.LEISURE,
-        Categories.TRANSFERS: Internal.TRANSFER,
-    }
+if __name__ == "__main__":
+    print(Addressable(set(["a", "B"])))

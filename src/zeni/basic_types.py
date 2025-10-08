@@ -5,6 +5,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
     from datetime import date
 
 
@@ -76,24 +77,29 @@ class StandardColumns(str, Enum):
     AMOUNT = "amount"
     CURRENCY = "currency"
 
-from typing import Iterable, Iterator, TypeVar, Generic
 
-T = TypeVar('T')
 
-class Addressable(Generic[T]):
-    def __init__(self, iterable: Iterable[T]):
-        self._items = list(iterable)
-        for item in self._items:
-            if isinstance(item, str):
-                attr_name = str(item).replace(' ', '_').replace('-', '_')
-                if attr_name.isidentifier():
-                    setattr(self, attr_name, item)
-    
-    def __iter__(self) -> Iterator[T]:
-        return iter(self._items)
-    
+
+class Addressable:
+    def __init__(self, iterable: Iterable[str]):
+        self.iterable = iterable
+        for item in self.iterable:
+            attr_name = item.replace(" ", "_").replace("-", "_")
+            if attr_name.isidentifier():
+                setattr(self, attr_name, item)
+            else:
+                raise ValueError(
+                    f"Cannot convert '{item}' to a valid attribute name."
+                )
+
+    def __iter__(self) -> Iterator[str  ]:
+        return self.iterable.__iter__()
+
     def __len__(self) -> int:
-        return len(self._items)
-    
+        return len(self.iterable)
+
     def __getitem__(self, index):
-        return self._items[index]
+        return self.iterable[index]
+
+    def __repr__(self):
+        return self.iterable.__repr__()

@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pandas as pd
 
+from zeni.parse.banks.base import Bank, BankRegistry
 from zeni.parse.banks.monzo import Monzo
 from zeni.types import StandardColumns
-
-if TYPE_CHECKING:
-    from zeni.parse.banks.base import Bank
-
 
 PERFERRED_ORDERING = tuple(
     map(
@@ -17,7 +12,6 @@ PERFERRED_ORDERING = tuple(
         (
             StandardColumns.DATE,
             StandardColumns.TIME,
-            StandardColumns.TYPE,
             StandardColumns.CATEGORY,
             StandardColumns.NAME,
             StandardColumns.AMOUNT,
@@ -28,10 +22,14 @@ PERFERRED_ORDERING = tuple(
 )
 
 
+def standardize(statement: pd.DataFrame, bank: str) -> pd.DataFrame:
+    institution: Bank = BankRegistry.get_bank(bank.lower())
+
+
 class Parse:
     """Parse a CSV file into a standardised format."""
 
-    def __init__(self, bank: Bank):
+    def __init__(self, bank: str):
         self.bank = bank
 
     def __call__(self, dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -41,7 +39,11 @@ class Parse:
             from_column = from_column.value
             try:
                 parsed[to_column] = dataframe[
-                    next(col for col in dataframe.columns if from_column.lower() in col.lower())
+                    next(
+                        col
+                        for col in dataframe.columns
+                        if from_column.lower() in col.lower()
+                    )
                 ]
             except StopIteration as exc:
                 raise ValueError(
@@ -50,7 +52,9 @@ class Parse:
                 ) from exc
 
         for datetime_col in []:
-            parsed[datetime_col] = getattr(pd.to_datetime(parsed[datetime_col], format=format).dt, datetime_col)
+            parsed[datetime_col] = getattr(
+                pd.to_datetime(parsed[datetime_col], format=format).dt, datetime_col
+            )
         for string_col in [
             StandardColumns.CATEGORY,
             StandardColumns.CURRENCY,
@@ -60,7 +64,9 @@ class Parse:
             parsed[string_col.value] = parsed[string_col.value].astype(str)
 
         for numeric_col in [StandardColumns.AMOUNT]:
-            parsed[numeric_col.value] = pd.to_numeric(parsed[numeric_col.value], errors="coerce")
+            parsed[numeric_col.value] = pd.to_numeric(
+                parsed[numeric_col.value], errors="coerce"
+            )
 
         return parsed
 

@@ -1,16 +1,30 @@
-from collections.abc import Mapping
 from typing import ClassVar, Protocol
-
-from zeni.types import Payment, StandardColumns
 
 
 class Bank(Protocol):
-    class Columns: ...
+    _columns: ClassVar[set[str]]
+    _categories: ClassVar[set[str]]
 
-    class Types: ...
+    @classmethod
+    def column_map(cls) -> dict[str, str]: ...
 
-    class Categories: ...
+    @classmethod
+    def category_map(cls) -> dict[str, str]: ...
 
-    column_map: ClassVar[Mapping[Columns, StandardColumns]]
-    type_map: ClassVar[Mapping[Types, Payment]] = ...
-    category_map: ClassVar[Mapping[Categories, Payment]] = ...
+
+class BankRegistry:
+    _supported_institutions: ClassVar[dict[str, Bank]] = {}
+
+    @classmethod
+    def register(cls, institution: Bank):
+        cls._supported_institutions[institution.__name__.lower()] = institution
+        return institution
+
+    @classmethod
+    def get_bank(cls, name: str) -> Bank:
+        try:
+            return cls._supported_institutions[name]
+        except KeyError:
+            raise KeyError(
+                f"Invalid bank name: '{name}'. Supported banks are {list(cls._supported_institutions.keys())}"
+            )
