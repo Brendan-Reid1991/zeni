@@ -1,9 +1,5 @@
 """Example usage of the Zeni database layer."""
 
-from pathlib import Path
-
-import pandas as pd
-
 from zeni import Database, import_statement
 
 # Create a database instance
@@ -19,7 +15,7 @@ batch = import_statement(
     bank_id_column="Transaction ID",
 )
 
-print(f"Import completed!")
+print("Import completed!")
 print(f"  New transactions: {batch.new_count}")
 print(f"  Duplicates skipped: {batch.duplicate_count}")
 print(f"  Total: {batch.transaction_count}")
@@ -34,13 +30,17 @@ for txn in recent:
 print("\n--- Groceries ---")
 groceries = db.get_transactions(category="groceries")
 total_groceries = sum(float(t.amount) for t in groceries)
-print(f"Found {len(groceries)} grocery transactions totaling £{abs(total_groceries):.2f}")
+print(
+    f"Found {len(groceries)} grocery transactions totaling £{abs(total_groceries):.2f}"
+)
 
 # Example 4: Update a transaction
 if recent:
     transaction_id = recent[0].id
     db.update_transaction(
-        transaction_id=transaction_id, category="updated_category", notes="Fixed category"
+        transaction_id=transaction_id,
+        category="updated_category",
+        notes="Fixed category",
     )
     print(f"\nUpdated transaction {transaction_id}")
 
