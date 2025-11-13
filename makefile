@@ -28,6 +28,7 @@ TESTS := tests
 # -------- Tasks --------
 
 install: ## Sync runtime + dev dependencies
+	$(UV) venv --seed
 	$(UV) sync --group dev
 
 install-all: ## Sync all dependency groups
