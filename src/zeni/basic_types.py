@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterator, Sequence
     from datetime import date
+    from decimal import Decimal
 
 
 @dataclass(slots=True, frozen=True)
@@ -25,14 +25,18 @@ class Transaction:
 class ZeniStrEnum(str, Enum):
     """A base class for all str enums in Zeni."""
 
-    def __str__(self):
+    value: str
+
+    def __str__(self) -> str:
         return self.value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.value
 
     @staticmethod
-    def _generate_next_value_(name, start, count, last_values):
+    def _generate_next_value_(
+        name: str, start: int, count: int, last_values: list[str]
+    ) -> str:
         return name.lower()
 
 
@@ -95,8 +99,8 @@ class StandardColumns(ZeniStrEnum):
 
 
 class Addressable:
-    def __init__(self, iterable: Iterable[str]):
-        self.iterable = iterable
+    def __init__(self, iterable: Sequence[str]):
+        self.iterable: Sequence[str] = iterable
         if not all(isinstance(x, str) for x in iterable):
             raise ValueError(
                 "To make an iterable addressable all elements must be strings."
@@ -114,8 +118,8 @@ class Addressable:
     def __len__(self) -> int:
         return len(self.iterable)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> str:
         return self.iterable[index]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.iterable.__repr__()
