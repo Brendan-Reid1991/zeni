@@ -1,12 +1,14 @@
 """This module defines the Bank protocol, as well as standardization procedures."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import ClassVar, Protocol, runtime_checkable
 from decimal import Decimal
+from typing import ClassVar, Protocol, runtime_checkable
+
 import pandas as pd
 
-from zeni.basic_types import StandardColumns, Payment
+from zeni.basic_types import Payment, StandardColumns
 from zeni.utils import filter_rows
 from zeni.utils.fuzzy_matcher import NoMatchingStringsError, fuzzy_string_matcher
 
@@ -25,14 +27,14 @@ PREFERRED_ORDERING: list[str] = [
 @runtime_checkable
 class Bank(Protocol):
     """This protocol defines the interface for all implemented institutions.
-    
-    It requires no initialization, only classmethods column_map and category_map to 
+
+    It requires no initialization, only classmethods column_map and category_map to
     be defined. THese define the mapping from Bank-specific columns and categories
     to Zenei-defined standards.
 
-    Optionally, pre- and post-processing steps can be defined to ensure the input 
+    Optionally, pre- and post-processing steps can be defined to ensure the input
     dataframe is output in the correct format.
-    
+
     """
 
     pre_processing_steps: ClassVar[Callable[[pd.DataFrame], pd.DataFrame]] = lambda x: x
@@ -43,7 +45,6 @@ class Bank(Protocol):
     @classmethod
     def column_map(cls) -> dict[str, StandardColumns]:
         """Map the bank-specific columns to our standard columns."""
-
 
     @classmethod
     def category_map(cls) -> dict[str, Payment]:
@@ -63,7 +64,7 @@ def register_bank(cls: type[Bank]) -> type[Bank]:
 
 def bank_directory(name: str) -> type[Bank]:
     """Return the Bank class for the input bank name.
-    
+
     Supports fuzzy string matching.
     """
     registered = tuple(_BANK_REGISTRY.keys())
@@ -75,14 +76,14 @@ def bank_directory(name: str) -> type[Bank]:
 
 def standardize(bank_cls: type[Bank], statement: pd.DataFrame) -> pd.DataFrame:
     """Standardize a bank statement using the provided bank class.
-    
+
     Parameters
     ----------
     bank_cls: type[Bank]
         The implemented Bank class for the institution the statement is from.
     statement: pd.DataFrame
         The dataframe file for the statement.
-    
+
     Returns
     -------
     pd.DataFrame
@@ -90,9 +91,11 @@ def standardize(bank_cls: type[Bank], statement: pd.DataFrame) -> pd.DataFrame:
     """
     statement = bank_cls.pre_processing_steps(statement)
 
-    statement = standardize_dtypes(statement.rename(
-        columns={v: k for k, v in bank_cls.column_map().items()}
-    )[PREFERRED_ORDERING])
+    statement = standardize_dtypes(
+        statement.rename(columns={v: k for k, v in bank_cls.column_map().items()})[
+            PREFERRED_ORDERING
+        ]
+    )
 
     for old_category, new_category in bank_cls.category_map().items():
         statement.loc[
@@ -134,7 +137,10 @@ def standardize_dtypes(
     amount_columns = [
         col
         for col in df.columns
-        if any(keyword in col.lower() for keyword in [StandardColumns.AMOUNT, StandardColumns.BALANCE])
+        if any(
+            keyword in col.lower()
+            for keyword in [StandardColumns.AMOUNT, StandardColumns.BALANCE]
+        )
     ]
 
     for col in amount_columns:

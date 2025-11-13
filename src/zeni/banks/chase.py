@@ -1,17 +1,18 @@
 """A bank class for parsing statements from Chase bank."""
+
 from __future__ import annotations
 
 import pandas as pd
 
+from zeni.banks.bank import PREFERRED_ORDERING, register_bank
 from zeni.basic_types import Incoming, Internal, Outgoing, StandardColumns
-from zeni.banks.bank import register_bank, PREFERRED_ORDERING
 from zeni.utils import filter_rows
 
 
 def chase_pre_processor(chase_statement: pd.DataFrame) -> pd.DataFrame:
     """The statements from chase come as a dataframe with a single column,
     and transactions are recorded in a pd.Series in each row.
-    
+
     Each pd.Series only stores the balance as data, but the .name of the Series is
     as such:
     ```python

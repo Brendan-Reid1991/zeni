@@ -1,10 +1,11 @@
 """A Bank class for parsing Monzo statements."""
+
 from __future__ import annotations
 
 import pandas as pd
 
-from zeni.basic_types import Incoming, Internal, Outgoing, StandardColumns
 from zeni.banks.bank import register_bank
+from zeni.basic_types import Incoming, Internal, Outgoing, StandardColumns
 from zeni.utils import filter_rows
 
 
