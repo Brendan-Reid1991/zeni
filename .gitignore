@@ -30,6 +30,7 @@ ENV/
 # Python tooling
 .mypy_cache/
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 .cache/
@@ -37,6 +38,8 @@ htmlcov/
 # IDE
 .vscode/
 .idea/
+.claude/
+.zeni/
 
 # Data
 data/**/*.parquet
@@ -45,6 +48,7 @@ data/**/*.db
 data/**/*.sqlite
 data/**/*.sqlite3
 data/**/*.csv
+**/*.db
 
 # OS
 .DS_Store
