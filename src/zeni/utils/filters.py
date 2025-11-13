@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from decimal import Decimal
-from numbers import Number
 from functools import wraps
 from typing import TypeAlias
 
@@ -15,14 +14,16 @@ from numpy import typing as npt
 from zeni.utils.fuzzy_matcher import fuzzy_string_matcher
 
 
-def map_column_name(function: Callable[[pd.DataFrame, str, FilterT], pd.DataFrame]):
+def map_column_name(
+    function: Callable[[pd.DataFrame, str, FilterT], pd.DataFrame],
+) -> Callable[[pd.DataFrame, str, FilterT], pd.DataFrame]:
     """A decorator that maps a function argument to a column in a dataframe.
 
     Can only be applied to a function where the first argument is a pandas dataframe.
     """
 
     @wraps(function)
-    def inner(df: pd.DataFrame, column_name: str, settings: FilterT):
+    def inner(df: pd.DataFrame, column_name: str, settings: FilterT) -> pd.DataFrame:
         best_match = fuzzy_string_matcher(column_name, tuple(df.columns))
         return function(df, best_match, settings)
 
@@ -60,7 +61,9 @@ class DataframeFilters:
         return df[df[column] == value]
 
     @staticmethod
-    def approx_equals(df: pd.DataFrame, column: str, value: float) -> pd.DataFrame:
+    def approx_equals(
+        df: pd.DataFrame, column: str, value: Decimal | float
+    ) -> pd.DataFrame:
         """Approximate equality checking for dataframe float values.
 
         Returns a sub-dataframe that satisfies np.isclose(df[column], value).
@@ -75,7 +78,7 @@ class DataframeFilters:
         -------
         pd.DataFrame
         """
-        return df[np.isclose(df[column], value)]
+        return df[np.isclose(df[column], float(value))]
 
     @staticmethod
     def has_substring(
@@ -128,7 +131,7 @@ class DataframeFilters:
 
     @staticmethod
     def between(
-        df: pd.DataFrame, column: str, values: tuple[Number, Number]
+        df: pd.DataFrame, column: str, values: tuple[Entry, Entry]
     ) -> pd.DataFrame:
         """Check if a value in a dataframe falls within a range.
 
@@ -191,13 +194,7 @@ class DataframeFilters:
 
 
 FilterT: TypeAlias = (
-    list[Entry]
-    | tuple[Entry, Entry]
-    | Entry
-    | Callable[
-        [pd.Series],
-        BooleanArray
-    ]
+    list[Entry] | tuple[Entry, Entry] | Entry | Callable[[pd.Series], BooleanArray]
 )
 """Possible dataframe filters."""
 
@@ -232,7 +229,7 @@ def filter_rows(dataframe: pd.DataFrame, column: str, settings: FilterT) -> pd.D
         If a function call (via apply_predicate) cannot be parsed.
     ValueError
         If an unrecognised setting is passed.
-    """    
+    """
     match settings:
         case tuple():
             return DataframeFilters.between(dataframe, column, settings)
@@ -250,7 +247,7 @@ def filter_rows(dataframe: pd.DataFrame, column: str, settings: FilterT) -> pd.D
                     dataframe, column, settings[1:], head == NOT
                 )
             return DataframeFilters.equals(dataframe, column, settings)
-        case Callable():
+        case _ if callable(settings):
             try:
                 return DataframeFilters.apply_predicate(dataframe, column, settings)
             except ValueError as exc:
@@ -263,7 +260,7 @@ def filter_rows(dataframe: pd.DataFrame, column: str, settings: FilterT) -> pd.D
             )
 
 
-def filter_dataframe(dataframe: pd.DataFrame, **kwargs) -> pd.DataFrame:
+def filter_dataframe(dataframe: pd.DataFrame, **kwargs: FilterT) -> pd.DataFrame:
     """Access point for multi-setting filtering of dataframes.
 
     Settings can be applied as kwargs where the argument name is the column name, and the
@@ -277,7 +274,7 @@ def filter_dataframe(dataframe: pd.DataFrame, **kwargs) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-    """    
+    """
     df = dataframe
     for column, setting in kwargs.items():
         df = filter_rows(df, column, setting)

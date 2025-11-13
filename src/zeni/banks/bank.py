@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 from decimal import Decimal
-from typing import ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
 
 import pandas as pd
 
 from zeni.basic_types import Payment, StandardColumns
-from zeni.utils import filter_rows
+from zeni.utils import filter_dataframe
 from zeni.utils.fuzzy_matcher import NoMatchingStringsError, fuzzy_string_matcher
 
 PREFERRED_ORDERING: list[str] = [
@@ -44,11 +46,11 @@ class Bank(Protocol):
 
     @classmethod
     def column_map(cls) -> dict[str, StandardColumns]:
-        """Map the bank-specific columns to our standard columns."""
+        """Map bank-specific columns to Zeni standard columns."""
 
     @classmethod
     def category_map(cls) -> dict[str, Payment]:
-        """Map the bank-specific categories to our standard categories."""
+        """Map the bank-specific categories to Zeni standard categories."""
 
 
 _BANK_REGISTRY: dict[str, type[Bank]] = {}
@@ -70,8 +72,10 @@ def bank_directory(name: str) -> type[Bank]:
     registered = tuple(_BANK_REGISTRY.keys())
     try:
         return _BANK_REGISTRY[fuzzy_string_matcher(name, registered)]
-    except NoMatchingStringsError:
-        raise KeyError(f"Invalid bank name: '{name}'. Supported banks are: {registered}")
+    except NoMatchingStringsError as exc:
+        raise KeyError(
+            f"Invalid bank name: '{name}'. Supported banks are: {registered}"
+        ) from exc
 
 
 def standardize(bank_cls: type[Bank], statement: pd.DataFrame) -> pd.DataFrame:
@@ -92,14 +96,12 @@ def standardize(bank_cls: type[Bank], statement: pd.DataFrame) -> pd.DataFrame:
     statement = bank_cls.pre_processing_steps(statement)
 
     statement = standardize_dtypes(
-        statement.rename(columns={v: k for k, v in bank_cls.column_map().items()})[
-            PREFERRED_ORDERING
-        ]
+        statement.rename(columns=bank_cls.column_map())[PREFERRED_ORDERING]
     )
 
     for old_category, new_category in bank_cls.category_map().items():
         statement.loc[
-            filter_rows(statement, "category", "^" + old_category).index,
+            filter_dataframe(statement, category="^" + old_category).index,
             StandardColumns.CATEGORY,
         ] = new_category
 

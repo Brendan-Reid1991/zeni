@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
-import pandas as pd
+from typing import TYPE_CHECKING, ClassVar
 
-from zeni.banks.bank import register_bank
-from zeni.basic_types import Incoming, Internal, Outgoing, StandardColumns
-from zeni.utils import filter_rows
+if TYPE_CHECKING:
+    import pandas as pd
+
+from zeni.banks.bank import Bank, register_bank
+from zeni.basic_types import Incoming, Internal, Outgoing, Payment, StandardColumns
+from zeni.utils import filter_dataframe
 
 
 def _post_process_flex_payments(statement: pd.DataFrame) -> pd.DataFrame:
     """Flex payments in Monzo show up with a NaN name, this step
     renames those columns."""
-    flex_rows = filter_rows(statement, "notes", "^flex").index
+    flex_rows = filter_dataframe(statement, notes="^flex").index
     statement.loc[flex_rows, StandardColumns.NAME] = "Flex payment"
     return statement
 
@@ -20,31 +23,34 @@ def _post_process_flex_payments(statement: pd.DataFrame) -> pd.DataFrame:
 def _post_process_overdraft_fees(statement: pd.DataFrame) -> pd.DataFrame:
     """Overdraft fees are registered as an UNCATEGORISED payment, this step
     appropriately changes the category to FEE."""
-    overdraft_rows = filter_rows(statement, "notes", "^overdraft fees").index
+    overdraft_rows = filter_dataframe(statement, notes="^overdraft fees").index
     statement.loc[overdraft_rows, StandardColumns.NAME] = "Overdraft fees"
     statement.loc[overdraft_rows, StandardColumns.CATEGORY] = Outgoing.FEE
     return statement
 
 
 @register_bank
-class Monzo:
+class Monzo(Bank):
     """Defines parsing rules for Monzo bank statements."""
 
-    post_processing_steps = [_post_process_flex_payments, _post_process_overdraft_fees]
+    post_processing_steps: ClassVar = [
+        _post_process_flex_payments,
+        _post_process_overdraft_fees,
+    ]
 
     @classmethod
-    def column_map(cls) -> dict[str, str]:
+    def column_map(cls) -> dict[str, StandardColumns]:
         return {
-            StandardColumns.NAME: "Name",
-            StandardColumns.AMOUNT: "Amount",
-            StandardColumns.DATE: "Date",
-            StandardColumns.NOTES: "Description",
-            StandardColumns.CATEGORY: "Category",
-            StandardColumns.CURRENCY: "Currency",
+            "Name": StandardColumns.NAME,
+            "Amount": StandardColumns.AMOUNT,
+            "Date": StandardColumns.DATE,
+            "Description": StandardColumns.NOTES,
+            "Category": StandardColumns.CATEGORY,
+            "Currency": StandardColumns.CURRENCY,
         }
 
     @classmethod
-    def category_map(cls) -> dict[str, str]:
+    def category_map(cls) -> dict[str, Payment]:
         return {
             "Bills": Outgoing.BILL,
             "Eating out": Outgoing.LEISURE,

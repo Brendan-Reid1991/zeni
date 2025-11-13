@@ -1,10 +1,12 @@
 """A fuzzy matching function."""
+
 import difflib
+from collections.abc import Sequence
 from functools import lru_cache
 
 
 class NoMatchingStringsError(Exception):
-    def __init__(self, input_string: str, candidates: tuple[str]):
+    def __init__(self, input_string: str, candidates: Sequence[str]):
         candidates_list = "\n\t- ".join(candidates)
         super().__init__(
             f"No matches for '{input_string}' found in candidates:\n\t-"
@@ -13,28 +15,28 @@ class NoMatchingStringsError(Exception):
 
 
 class TooManyMatchingStringsError(Exception):
-    def __init__(self, input_string: str, matches: tuple[str]):
+    def __init__(self, input_string: str, matches: Sequence[str]):
         matches_list = "\n\t- ".join(matches)
         super().__init__(
             f"More than one match found for '{input_string}':\n\t-" + matches_list
         )
 
 
-def normalize(candidate: str):
+def normalize(candidate: str) -> str:
     """Normalize a string entry by putting to lowercase, removing spaces and commas."""
     return candidate.lower().replace(" ", "").replace(",", "")
 
 
 @lru_cache
-def fuzzy_string_matcher(input_str: str, candidates: tuple[str, ...]) -> str:
+def fuzzy_string_matcher(input_str: str, candidates: tuple[str, ...]) -> str:  # type: ignore[return]
     """A cached fuzzy matching function.
 
-    This function first normalizes the input and list of candidates, and performs a 
+    This function first normalizes the input and list of candidates, and performs a
     series of checks.
 
     First, if the exact string exists in the candidates, return it.
 
-    Second, if only one of the candidates has the input as an opening substring, return 
+    Second, if only one of the candidates has the input as an opening substring, return
     it.
 
     Finally, we perform two naive matching procedures: difflib and substring matching.
@@ -73,7 +75,7 @@ def fuzzy_string_matcher(input_str: str, candidates: tuple[str, ...]) -> str:
         If there are no matching strings in the candidates.
     TooManyMatchingStringsError
         If a single close match could not be identified.
-    """    
+    """
     normalized_candidates = {normalize(candidate): candidate for candidate in candidates}
     normalized_input = normalize(input_str)
 
@@ -93,7 +95,7 @@ def fuzzy_string_matcher(input_str: str, candidates: tuple[str, ...]) -> str:
     difflib_matches = difflib.get_close_matches(
         normalized_input, normalized_candidates.keys(), cutoff=0.75
     )
-    substring_matches = [
+    substring_matches: list[str] = [
         y for x, y in normalized_candidates.items() if normalized_input in x
     ]
 
