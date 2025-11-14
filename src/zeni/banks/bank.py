@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from decimal import Decimal
-from typing import TYPE_CHECKING, ClassVar, Protocol, runtime_checkable
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+from typing import (
+    ClassVar,
+    Protocol,
+    TypeAlias,
+    runtime_checkable,
+)
 
 import pandas as pd
 
@@ -25,6 +28,9 @@ PREFERRED_ORDERING: list[str] = [
 ]
 """The current preferred ordering of standard columns."""
 
+DataframeProcessor: TypeAlias = Callable[[pd.DataFrame], pd.DataFrame]
+ProcessingStep: TypeAlias = list[tuple[int, DataframeProcessor]]
+
 
 @runtime_checkable
 class Bank(Protocol):
@@ -39,11 +45,6 @@ class Bank(Protocol):
 
     """
 
-    pre_processing_steps: ClassVar[Callable[[pd.DataFrame], pd.DataFrame]] = lambda x: x
-    post_processing_steps: ClassVar[
-        Iterable[Callable[[pd.DataFrame], pd.DataFrame]]
-    ] = ()
-
     @classmethod
     def column_map(cls) -> dict[str, StandardColumns]:
         """Map bank-specific columns to Zeni standard columns."""
@@ -51,6 +52,39 @@ class Bank(Protocol):
     @classmethod
     def category_map(cls) -> dict[str, Payment]:
         """Map the bank-specific categories to Zeni standard categories."""
+
+    pre_processing_steps: ClassVar[ProcessingStep] = []
+    post_processing_steps: ClassVar[ProcessingStep] = []
+
+    def __init_subclass__(cls) -> None:
+        """Initialize processing step lists for each subclass."""
+        cls.pre_processing_steps = []
+        cls.post_processing_steps = []
+
+    @classmethod
+    def pre_process(
+        cls, order: int = 0
+    ) -> Callable[[DataframeProcessor], DataframeProcessor]:
+        """Decorator to register pre-processing steps with optional ordering."""
+
+        def decorator(fn: DataframeProcessor) -> DataframeProcessor:
+            cls.pre_processing_steps.append((order, fn))
+            # cls.pre_processing_steps.sort(key=lambda x: x[0])
+            return fn
+
+        return decorator
+
+    @classmethod
+    def post_process(
+        cls, order: int = 0
+    ) -> Callable[[DataframeProcessor], DataframeProcessor]:
+        """Decorator to register post-processing steps with optional ordering."""
+
+        def decorator(fn: DataframeProcessor) -> DataframeProcessor:
+            cls.post_processing_steps.append((order, fn))
+            return fn
+
+        return decorator
 
 
 _BANK_REGISTRY: dict[str, type[Bank]] = {}
@@ -78,13 +112,13 @@ def bank_directory(name: str) -> type[Bank]:
         ) from exc
 
 
-def standardize(bank_cls: type[Bank], statement: pd.DataFrame) -> pd.DataFrame:
-    """Standardize a bank statement using the provided bank class.
+def standardize(bank: str, statement: pd.DataFrame) -> pd.DataFrame:
+    """Standardize a bank statement using the provided bank name.
 
     Parameters
     ----------
-    bank_cls: type[Bank]
-        The implemented Bank class for the institution the statement is from.
+    bank: str
+        The name of the bank the statement is from.
     statement: pd.DataFrame
         The dataframe file for the statement.
 
@@ -93,7 +127,10 @@ def standardize(bank_cls: type[Bank], statement: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         A standardized dataframe.
     """
-    statement = bank_cls.pre_processing_steps(statement)
+    bank_cls = bank_directory(bank)
+
+    for _, _pre in sorted(bank_cls.pre_processing_steps, key=lambda x: x[0]):
+        statement = _pre(statement)
 
     statement = standardize_dtypes(
         statement.rename(columns=bank_cls.column_map())[PREFERRED_ORDERING]
@@ -105,8 +142,8 @@ def standardize(bank_cls: type[Bank], statement: pd.DataFrame) -> pd.DataFrame:
             StandardColumns.CATEGORY,
         ] = new_category
 
-    for fn in bank_cls.post_processing_steps:
-        statement = fn(statement)
+    for _, _post in sorted(bank_cls.post_processing_steps, key=lambda x: x[0]):
+        statement = _post(statement)
 
     return statement
 

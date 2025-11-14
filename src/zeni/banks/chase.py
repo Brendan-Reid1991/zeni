@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
-
 import pandas as pd
 
 from zeni.banks.bank import PREFERRED_ORDERING, Bank, register_bank
@@ -11,7 +9,33 @@ from zeni.basic_types import Incoming, Internal, Outgoing, Payment, StandardColu
 from zeni.utils import filter_dataframe
 
 
-def chase_pre_processor(chase_statement: pd.DataFrame) -> pd.DataFrame:
+@register_bank
+class Chase(Bank):
+    """Defines parsing rules for Chase bank statements."""
+
+    @classmethod
+    def column_map(cls) -> dict[str, StandardColumns]:
+        return {
+            "Name": StandardColumns.NAME,
+            "Amount": StandardColumns.AMOUNT,
+            "Date": StandardColumns.DATE,
+            "Description": StandardColumns.NOTES,
+            "Category": StandardColumns.CATEGORY,
+            "Currency": StandardColumns.CURRENCY,
+            "Balance": StandardColumns.BALANCE,
+        }
+
+    @classmethod
+    def category_map(cls) -> dict[str, Payment]:
+        return {
+            "Purchase": Outgoing.LEISURE,
+            "Transfer": Internal.TRANSFER,
+            "Payment": Incoming.INCOME,
+        }
+
+
+@Chase.pre_process()
+def unpack_statement(chase_statement: pd.DataFrame) -> pd.DataFrame:
     """The statements from chase come as a dataframe with a single column,
     and transactions are recorded in a pd.Series in each row.
 
@@ -41,7 +65,8 @@ def chase_pre_processor(chase_statement: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(data, columns=PREFERRED_ORDERING)
 
 
-def _post_process_round_ups(chase_statement: pd.DataFrame) -> pd.DataFrame:
+@Chase.post_process()
+def round_ups(chase_statement: pd.DataFrame) -> pd.DataFrame:
     """Chase defines very few payment categories, this step moves round ups
     to an internal ROUNDUP category."""
     round_up_index = filter_dataframe(chase_statement, name="^round up").index
@@ -49,38 +74,11 @@ def _post_process_round_ups(chase_statement: pd.DataFrame) -> pd.DataFrame:
     return chase_statement
 
 
-def _post_process_payments(chase_statement: pd.DataFrame) -> pd.DataFrame:
+@Chase.post_process()
+def classify_payments(chase_statement: pd.DataFrame) -> pd.DataFrame:
     """Chase does not differentiate between bank payments in or out. This finds
     all negative bank payments and maps to a BILL."""
     payments: pd.DataFrame = filter_dataframe(chase_statement, category="^income")
     outgoing_index = filter_dataframe(payments, amount=lambda x: x < 0).index
     chase_statement.loc[outgoing_index, StandardColumns.CATEGORY] = Outgoing.BILL
     return chase_statement
-
-
-@register_bank
-class Chase(Bank):
-    """Defines parsing rules for Chase bank statements."""
-
-    pre_processing_steps: ClassVar = chase_pre_processor
-    post_processing_steps: ClassVar = (_post_process_round_ups, _post_process_payments)
-
-    @classmethod
-    def column_map(cls) -> dict[str, StandardColumns]:
-        return {
-            "Name": StandardColumns.NAME,
-            "Amount": StandardColumns.AMOUNT,
-            "Date": StandardColumns.DATE,
-            "Description": StandardColumns.NOTES,
-            "Category": StandardColumns.CATEGORY,
-            "Currency": StandardColumns.CURRENCY,
-            "Balance": StandardColumns.BALANCE,
-        }
-
-    @classmethod
-    def category_map(cls) -> dict[str, Payment]:
-        return {
-            "Purchase": Outgoing.LEISURE,
-            "Transfer": Internal.TRANSFER,
-            "Payment": Incoming.INCOME,
-        }
