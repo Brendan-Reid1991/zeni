@@ -20,6 +20,7 @@ class Monzo(Bank):
     def column_map(cls) -> dict[str, StandardColumns]:
         return {
             "Name": StandardColumns.NAME,
+            "Time": StandardColumns.TIME,
             "Amount": StandardColumns.AMOUNT,
             "Date": StandardColumns.DATE,
             "Description": StandardColumns.NOTES,

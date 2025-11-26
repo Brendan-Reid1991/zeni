@@ -43,8 +43,8 @@ class ZeniStrEnum(str, Enum):
 class Account(ZeniStrEnum):
     """Account enum."""
 
-    DEBIT = auto()
-    CREDIT = auto()
+    CURRENT = auto()
+    CREDIT_CARD = auto()
     SAVINGS = auto()
     ISA = auto()
 
@@ -90,6 +90,7 @@ class Internal(Payment):
 
 class StandardColumns(ZeniStrEnum):
     DATE = auto()
+    TIME = auto()
     NAME = auto()
     NOTES = auto()
     CATEGORY = auto()

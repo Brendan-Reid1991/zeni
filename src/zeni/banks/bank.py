@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from decimal import Decimal
+from pathlib import Path
 from typing import (
     ClassVar,
     Protocol,
@@ -19,6 +20,7 @@ from zeni.utils.fuzzy_matcher import NoMatchingStringsError, fuzzy_string_matche
 
 PREFERRED_ORDERING: list[str] = [
     StandardColumns.DATE,
+    StandardColumns.TIME,
     StandardColumns.NAME,
     StandardColumns.CATEGORY,
     StandardColumns.AMOUNT,
@@ -38,12 +40,16 @@ class Bank(Protocol):
 
     It requires no initialization, only classmethods column_map and category_map to
     be defined. THese define the mapping from Bank-specific columns and categories
-    to Zenei-defined standards.
+    to Zeni-defined standards.
 
     Optionally, pre- and post-processing steps can be defined to ensure the input
     dataframe is output in the correct format.
 
     """
+
+    @staticmethod
+    def load(filepath: Path | str) -> pd.DataFrame:
+        return pd.read_csv(filepath)
 
     @classmethod
     def column_map(cls) -> dict[str, StandardColumns]:
@@ -112,15 +118,15 @@ def bank_directory(name: str) -> type[Bank]:
         ) from exc
 
 
-def standardize(bank: str, statement: pd.DataFrame) -> pd.DataFrame:
+def standardize(bank: str, filepath: Path | str) -> pd.DataFrame:
     """Standardize a bank statement using the provided bank name.
 
     Parameters
     ----------
     bank: str
         The name of the bank the statement is from.
-    statement: pd.DataFrame
-        The dataframe file for the statement.
+    filepath: Path | str
+        The pathway to the statement.
 
     Returns
     -------
@@ -128,10 +134,12 @@ def standardize(bank: str, statement: pd.DataFrame) -> pd.DataFrame:
         A standardized dataframe.
     """
     bank_cls = bank_directory(bank)
+    statement = bank_cls.load(filepath)
 
     for _, _pre in sorted(bank_cls.pre_processing_steps, key=lambda x: x[0]):
         statement = _pre(statement)
-
+    if StandardColumns.NOTES not in bank_cls.column_map().values():
+        statement[StandardColumns.NOTES] = pd.Series([], dtype="str")
     statement = standardize_dtypes(
         statement.rename(columns=bank_cls.column_map())[PREFERRED_ORDERING]
     )
@@ -170,8 +178,12 @@ def standardize_dtypes(
     df = df.copy()
 
     date_column = StandardColumns.DATE
-
     df[date_column] = pd.to_datetime(df[date_column], format="mixed", dayfirst=True)
+
+    time_column = StandardColumns.TIME
+    df[time_column] = pd.to_datetime(df[time_column], format="mixed").dt.strftime(
+        "%H:%M:%S"
+    )
 
     amount_columns = [
         col

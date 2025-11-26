@@ -59,7 +59,7 @@ lock: ## Update lockfile (re-resolve)
 	$(UV) lock
 
 clean: ## Remove caches and build artifacts
-	rm -rf .pytest_cache .ruff_cache build dist *.egg-info
+	rm -rf .pytest_cache .ruff_cache build dist *.egg-info .mypy_cache
 
 help: ## Show this help
 	@grep -E '^[[:alnum:]_.-]+:.*## ' $(MAKEFILE_LIST) | \
