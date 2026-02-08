@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pandas as pd
 
@@ -37,6 +40,8 @@ class Chase(Bank):
             "Purchase": Outgoing.LEISURE,
             "Transfer": Internal.TRANSFER,
             "Payment": Incoming.INCOME,
+            "Refund": Incoming.REFUND,
+            "Direct Debit": Outgoing.BILL,
         }
 
 
@@ -56,4 +61,16 @@ def classify_payments(chase_statement: pd.DataFrame) -> pd.DataFrame:
     payments: pd.DataFrame = filter_dataframe(chase_statement, category="^income")
     outgoing_index = filter_dataframe(payments, amount=lambda x: x < 0).index
     chase_statement.loc[outgoing_index, StandardColumns.CATEGORY] = Outgoing.BILL
+    return chase_statement
+
+
+@Chase.post_process()
+def withdrawals(chase_statement: pd.DataFrame) -> pd.DataFrame:
+    """Cash withdrawals can appear in multiple different formats, this unifies them."""
+    payments: pd.DataFrame = filter_dataframe(chase_statement, category="^withdrawal")
+    indices = payments.index
+    chase_statement.loc[indices, StandardColumns.CATEGORY] = Outgoing.CASH_WITHDRAWAL
+    chase_statement.loc[indices, StandardColumns.NOTES] = payments[
+        StandardColumns.CATEGORY
+    ]
     return chase_statement

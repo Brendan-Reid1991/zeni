@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from decimal import Decimal
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 from typing import (
     ClassVar,
     Protocol,
@@ -18,18 +21,6 @@ from zeni.basic_types import Payment, StandardColumns
 from zeni.utils import filter_dataframe
 from zeni.utils.fuzzy_matcher import NoMatchingStringsError, fuzzy_string_matcher
 
-PREFERRED_ORDERING: list[str] = [
-    StandardColumns.DATE,
-    StandardColumns.TIME,
-    StandardColumns.NAME,
-    StandardColumns.CATEGORY,
-    StandardColumns.AMOUNT,
-    StandardColumns.CURRENCY,
-    StandardColumns.NOTES,
-    StandardColumns.BALANCE,
-]
-"""The current preferred ordering of standard columns."""
-
 DataframeProcessor: TypeAlias = Callable[[pd.DataFrame], pd.DataFrame]
 ProcessingStep: TypeAlias = list[tuple[int, DataframeProcessor]]
 
@@ -39,7 +30,7 @@ class Bank(Protocol):
     """This protocol defines the interface for all implemented institutions.
 
     It requires no initialization, only classmethods column_map and category_map to
-    be defined. THese define the mapping from Bank-specific columns and categories
+    be defined. These define the mapping from Bank-specific columns and categories
     to Zeni-defined standards.
 
     Optionally, pre- and post-processing steps can be defined to ensure the input
@@ -141,7 +132,7 @@ def standardize(bank: str, filepath: Path | str) -> pd.DataFrame:
     if StandardColumns.NOTES not in bank_cls.column_map().values():
         statement[StandardColumns.NOTES] = pd.Series([], dtype="str")
     statement = standardize_dtypes(
-        statement.rename(columns=bank_cls.column_map())[PREFERRED_ORDERING]
+        statement.rename(columns=bank_cls.column_map())[[*StandardColumns]]
     )
 
     for old_category, new_category in bank_cls.category_map().items():
