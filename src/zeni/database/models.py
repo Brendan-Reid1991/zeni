@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from zeni.basic_types import Account
+from zeni.basic_types import Account, TransactionFields
 
 
 class Base(DeclarativeBase):
@@ -59,10 +59,10 @@ class Transaction(Base):
     time: Mapped[str] = mapped_column(String(8), nullable=False)
     name: Mapped[str] = mapped_column(String(20), nullable=False)
     category: Mapped[str] = mapped_column(String(20), nullable=False)
-    amount: Mapped[Decimal] = mapped_column(Numeric(), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
-    balance: Mapped[Decimal] = mapped_column(Numeric(), nullable=False)
+    balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     # Metadata
     created_at: Mapped[datetime] = mapped_column(
@@ -82,7 +82,13 @@ class Transaction(Base):
     # Unique constraint: prevent duplicate transactions
     # Use balance as it's unique for each transaction in statement
     __table_args__ = (
-        UniqueConstraint("bank", "date", "name", "balance", name="uq_transaction"),
+        UniqueConstraint(
+            TransactionFields.BANK,
+            TransactionFields.DATE,
+            TransactionFields.NAME,
+            TransactionFields.BALANCE,
+            name="uq_transaction",
+        ),
     )
 
     def __repr__(self) -> str:
@@ -102,11 +108,36 @@ class Transaction(Base):
             time=data["time"],
             name=data["name"],
             category=data["category"],
-            amount=Decimal(str(data["amount"])),
+            amount=Decimal(str(data["amount"])).quantize(Decimal("0.01")),
             currency=data["currency"],
             notes=data["notes"] if pd.notna(data.get("notes")) else None,
-            balance=Decimal(str(data["balance"])),
+            balance=Decimal(str(data["balance"])).quantize(Decimal("0.01")),
         )
+
+
+class Rule(Base):
+    """A persistent categorisation rule that matches transactions by conditions.
+
+    Conditions are stored as a JSON dict mapping field names to filter patterns,
+    using the same syntax as filter_query: {"name": "^tesco", "amount": [-50, 0]}.
+    Two-element lists are interpreted as ranges (tuples) for filter_query.
+    """
+
+    __tablename__ = "rules"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    conditions: Mapped[str] = mapped_column(String(2000), nullable=False)
+    category: Mapped[str] = mapped_column(String(20), nullable=False)
+    notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.now(tz=UTC)
+    )
+
+    def __repr__(self) -> str:
+        return f"<Rule(id={self.id}, {self.conditions} -> {self.category})>"
 
 
 class ImportedStatements(Base):
