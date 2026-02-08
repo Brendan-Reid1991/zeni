@@ -38,7 +38,7 @@ class Monzo(Bank):
             "Groceries": Outgoing.GROCERIES,
             "Income": Incoming.INCOME,
             "Personal Care": Outgoing.LEISURE,
-            "SAvings": Internal.SAVINGS,
+            "Savings": Internal.SAVINGS,
             "Shopping": Outgoing.LEISURE,
             "TRansfers": Internal.TRANSFER,
         }
