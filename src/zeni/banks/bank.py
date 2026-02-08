@@ -4,16 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar, Protocol, TypeAlias, runtime_checkable
 
 if TYPE_CHECKING:
     from pathlib import Path
-from typing import (
-    ClassVar,
-    Protocol,
-    TypeAlias,
-    runtime_checkable,
-)
 
 import pandas as pd
 
