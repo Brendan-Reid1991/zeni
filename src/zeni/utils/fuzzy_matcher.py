@@ -1,8 +1,10 @@
 """A fuzzy matching function."""
 
 import difflib
-from collections.abc import Sequence
-from functools import lru_cache
+import inspect
+from collections.abc import Callable, Sequence
+from functools import lru_cache, wraps
+from typing import ParamSpec, TypeVar
 
 
 class NoMatchingStringsError(Exception):
@@ -116,3 +118,32 @@ def fuzzy_string_matcher(input_str: str, candidates: tuple[str, ...]) -> str:  #
                 if x == 0
                 else tuple(map(normalized_candidates.__getitem__, difflib_matches)),
             )
+
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def coerce_to(valid_fields: tuple[str, ...]):
+    """A decorator to coerce kwargs of a function call to a set of valid field names."""
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        sig = inspect.signature(func)
+        explicit_params = {
+            name
+            for name, param in sig.parameters.items()
+            if param.kind
+            not in (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+        }
+
+        @wraps(func)
+        def inner(*args, **kwargs):
+            new_kwargs = {
+                k if k in explicit_params else fuzzy_string_matcher(k, valid_fields): v
+                for k, v in kwargs.items()
+            }
+            return func(*args, **new_kwargs)
+
+        return inner
+
+    return decorator
