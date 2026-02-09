@@ -39,7 +39,7 @@ class EditorResult:
 
 
 def transaction_editor(
-    df: pd.DataFrame,
+    dataframe: pd.DataFrame,
     *,
     key: str,
     categories: list[str],
@@ -65,13 +65,13 @@ def transaction_editor(
     show_all = st.toggle("Show all columns", value=False, key=f"{key}_show_all")
 
     if show_all:
-        cols = [c for c in _ALL_COLS if c in df.columns]
-        disabled = [c for c in _DISABLED_ALL if c in df.columns]
+        cols = [c for c in _ALL_COLS if c in dataframe.columns]
+        disabled = [c for c in _DISABLED_ALL if c in dataframe.columns]
     else:
-        cols = [c for c in _FOCUSED_COLS if c in df.columns]
-        disabled = [c for c in _DISABLED_FOCUSED if c in df.columns]
+        cols = [c for c in _FOCUSED_COLS if c in dataframe.columns]
+        disabled = [c for c in _DISABLED_FOCUSED if c in dataframe.columns]
 
-    edit_df = df[cols].copy()
+    edit_df = dataframe[cols].copy()
     edit_df["notes"] = edit_df["notes"].fillna("")
 
     if selectable:
