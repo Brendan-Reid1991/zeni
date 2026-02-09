@@ -1,13 +1,35 @@
-"""Entry point for the Zeni Streamlit app. Run with: python -m zeni.app"""
+"""Entry point for the Zeni Streamlit app.
 
-import streamlit as st
+Usage:
+    python -m zeni.app          # launches via streamlit run
+    streamlit run -m zeni.app   # direct streamlit invocation
+"""
 
-from zeni.app.pages import categorise, dashboard, import_data, rules, transactions
-from zeni.app.state import connect_db, disconnect_db, get_db, get_db_name, init_state
-from zeni.database.utils import DEFAULT_PATHWAY, list_databases
+import sys
 
 
-def main():
+def _launch() -> None:
+    """Launch the app through streamlit run."""
+    from streamlit.web.cli import main as st_main
+
+    sys.argv = ["streamlit", "run", __file__]
+    st_main()
+
+
+def _app() -> None:
+    """The Streamlit application (executed by the streamlit runtime)."""
+    import streamlit as st
+
+    from zeni.app.pages import categorise, dashboard, import_data, rules, transactions
+    from zeni.app.state import (
+        connect_db,
+        disconnect_db,
+        get_db,
+        get_db_name,
+        init_state,
+    )
+    from zeni.database.utils import DEFAULT_PATHWAY, list_databases
+
     st.set_page_config(
         page_title="Zeni",
         layout="wide",
@@ -80,4 +102,7 @@ def main():
     pages.run()
 
 
-main()
+if "streamlit" in sys.modules and hasattr(sys.modules["streamlit"], "runtime"):
+    _app()
+else:
+    _launch()

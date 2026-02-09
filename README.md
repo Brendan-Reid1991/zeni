@@ -1,98 +1,107 @@
-# Budgeter
+# Zeni
 
-Multi-bank budgeting: ingest statements, auto-classify transactions (groceries, bills, etc.), and fix anything interactively. Shows a timeline of transfers, expenditure, and savings.
+Multi-bank budgeting tool: ingest CSV statements, auto-classify transactions via rules, and review everything in a Streamlit UI.
 
 ## Features
-- **Multi-bank ingest:** map arbitrary CSV columns to a standard schema via adapters.
-- **Rules-based auto-classify:** YAML rules (keywords/regex/amount rules). Defaults to `Uncategorized`.
-- **Interactive review:** Streamlit UI to reclassify and save changes.
-- **Timeline & summaries:** monthly/weekly spend, income, transfers.
-- **Extensible:** add bank adapters or ML classifiers later.
+
+- **Multi-bank ingest** — pluggable bank adapters (Chase, Monzo) with pre/post-processing pipelines to handle bank-specific quirks.
+- **Rules engine** — persistent categorisation rules with regex, substring, range, and exact-match conditions. Rules apply retroactively and on import.
+- **Inline editing** — reclassify transactions directly in the UI with bulk actions and one-click rule creation.
+- **Dashboard** — monthly spending charts, category/bank breakdowns, date and category filtering.
+- **SQLite storage** — all transactions, import history, and rules stored via SQLAlchemy ORM.
 
 ## Quickstart
 
 ```bash
-# create & activate a venv (or use uv)
-python -m venv .venv && source .venv/bin/activate
+# install with uv (recommended)
+make install
 
-# install (dev + UI extras)
-pip install -e ".[dev,ui]"
-
-# run tests
-pytest
-
-# run the UI
-streamlit run src/budgeter/ui/app.py
+# run the Streamlit app
+python -m zeni.app
 ```
 
 ## Project layout
 
 ```
-budgeter-template/
-├─ src/budgeter/
-│  ├─ ingest/
-│  │  ├─ base.py
-│  │  ├─ adapters.py
-│  │  └─ standard_schema.py
-│  ├─ classify/
-│  │  ├─ rules.py
-│  │  └─ __init__.py
-│  ├─ ui/
-│  │  └─ app.py
-│  ├─ __init__.py
-│  └─ types.py
-├─ data/samples/
-│  ├─ sample_rules.yaml
-│  └─ sample_statement.csv
-├─ tests/
-│  └─ test_rules.py
-├─ .github/workflows/ci.yml
-├─ .pre-commit-config.yaml
-├─ pyproject.toml
-├─ LICENSE
-└─ README.md
+src/zeni/
+├── app/                    # Streamlit UI
+│   ├── __main__.py         # Entry point (python -m zeni.app)
+│   ├── state.py            # Session state management
+│   ├── components.py       # Shared UI components
+│   └── pages/
+│       ├── transactions.py # Browse & inline-edit
+│       ├── categorise.py   # Filter, bulk-categorise, create rules
+│       ├── rules.py        # Manage categorisation rules
+│       ├── import_data.py  # Import CSV statements
+│       └── dashboard.py    # Spending charts & metrics
+├── banks/                  # Bank statement parsers
+│   ├── bank.py             # ABC base + standardize() pipeline
+│   ├── chase.py            # Chase adapter
+│   └── monzo.py            # Monzo adapter
+├── database/               # Persistence layer
+│   ├── engine.py           # SQLite engine wrapper
+│   ├── models.py           # Transaction, Rule, ImportedStatements
+│   ├── manager.py          # DatabaseManager (CRUD + rules)
+│   └── utils.py            # SQL filter helpers
+├── utils/
+│   ├── filters.py          # DataFrame filtering (substring, range, etc.)
+│   ├── fuzzy_matcher.py    # Fuzzy string matching & @coerce_to
+│   └── logging.py          # Logging setup
+└── basic_types.py          # Enums: Account, Payment categories, StandardColumns
 ```
 
-## Bank adapters
+## Adding a bank adapter
 
-Each adapter converts a raw bank CSV into the **standard schema**:
-- `date` (YYYY-MM-DD)
-- `description` (string)
-- `amount` (float; outflow negative, inflow positive)
-- `account` (string identifying the source account)
-- `currency` (ISO code; optional)
+Each adapter maps a bank's CSV format to the standard schema (`date`, `time`, `name`, `category`, `amount`, `currency`, `notes`, `balance`).
 
-See `src/budgeter/ingest/adapters.py` for examples.
+```python
+from zeni.banks.bank import Bank
+from zeni.basic_types import StandardColumns, Outgoing
 
-## Classification rules
+class MyBank(Bank):
+    @classmethod
+    def column_map(cls):
+        return {
+            "Transaction Date": StandardColumns.DATE,
+            "Description": StandardColumns.NAME,
+            # ...
+        }
 
-Rules live in YAML (see `data/samples/sample_rules.yaml`). They support:
-- `categories`: canonical category names
-- `keywords`: map of category -> list of substrings to match on `description`
-- `regex`: map of category -> list of regex to match on `description`
-- `amount_rules`: map of category -> list of rules: `{ min?: float, max?: float }`
-- `default_category`: used when no rule matches (defaults to `Uncategorized`).
+    @classmethod
+    def category_map(cls):
+        return {
+            "PURCHASE": Outgoing.LEISURE,
+            # ...
+        }
 
-## Streamlit UI
+# Optional post-processing for bank-specific edge cases
+@MyBank.post_process()
+def fix_quirk(df):
+    # ...
+    return df
+```
 
-Run `streamlit run src/budgeter/ui/app.py` then:
-- Upload a CSV.
-- Choose an adapter (or generic).
-- Load rules YAML.
-- Review/override categories.
-- Download the corrected CSV.
+Register it by importing in `banks/__init__.py`.
 
-## Roadmap
-- Support PDF parsing (statement OCR) via optional extra.
-- ML classifier fallback (scikit-learn/lightgbm).
-- Recurring transactions detection.
-- Budget planning envelopes.
-- Bank API connectors (Plaid/TrueLayer where available).
+## Categorisation rules
 
-## Contributing
-- Use `ruff` + `mypy` and keep functions small and testable.
-- Add unit tests with any new rules.
-- Run CI locally with `pytest -q`.
+Rules are created in the UI or programmatically:
+
+```python
+db.add_rule(
+    conditions={"name": "^tesco"},  # substring match
+    category="groceries",
+)
+
+db.add_rule(
+    conditions={"name": "^council", "amount": (-200, 0)},  # range match
+    category="bill",
+    priority=1,  # higher priority rules override lower
+)
+```
+
+Filter syntax: `"^..."` substring, `"!..."` exclusion, `[a, b]` membership, `(lo, hi)` range.
 
 ## License
+
 MIT
