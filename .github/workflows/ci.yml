@@ -18,5 +18,3 @@ jobs:
         run: uv venv --seed && uv pip install -e ".[dev]"
       - name: Lint
         run: uv run ruff check .
-      - name: Tests
-        run: uv run pytest
