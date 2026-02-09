@@ -1,15 +1,11 @@
 """Rules page — manage auto-categorisation rules."""
 
 import json
-from typing import TYPE_CHECKING
 
-import pandas as pd
 import streamlit as st
 
-from zeni.app.state import get_all_categories, get_transactions, invalidate_cache
-
-if TYPE_CHECKING:
-    from zeni.database import DatabaseManager
+from zeni.app.state import get_all_categories, get_db, get_transactions, invalidate_cache
+from zeni.utils import filter_dataframe
 
 
 def _format_conditions(raw_json: str) -> str:
@@ -28,27 +24,6 @@ def _format_conditions(raw_json: str) -> str:
     return " AND ".join(parts)
 
 
-def _apply_conditions_to_df(df: pd.DataFrame, conditions: dict) -> pd.DataFrame:
-    """Apply rule conditions to a DataFrame for preview/testing."""
-    mask = pd.Series(True, index=df.index)
-    for field, pattern in conditions.items():
-        if field not in df.columns:
-            continue
-        if isinstance(pattern, list) and len(pattern) == 2:
-            mask &= (df[field].astype(float) >= pattern[0]) & (
-                df[field].astype(float) <= pattern[1]
-            )
-        elif isinstance(pattern, str) and pattern.startswith("^"):
-            mask &= df[field].astype(str).str.contains(pattern[1:], case=False, na=False)
-        elif isinstance(pattern, str) and pattern.startswith("!"):
-            mask &= ~df[field].astype(str).str.contains(
-                pattern[1:], case=False, na=False
-            )
-        else:
-            mask &= df[field] == pattern
-    return df[mask]
-
-
 def page():
     st.header("Rules")
     st.caption(
@@ -56,7 +31,7 @@ def page():
         "They also apply retroactively when created."
     )
 
-    db: DatabaseManager = st.session_state.db
+    db = get_db()
 
     # --- Existing rules ---
     rules = db.get_rules()
@@ -143,12 +118,12 @@ def page():
         if st.button("Test rule", disabled=not has_conditions):
             df = get_transactions()
             if not df.empty:
-                matches = _apply_conditions_to_df(df, conditions)
+                matches = filter_dataframe(df, **conditions)
                 st.info(f"Would match **{len(matches)}** transactions.")
                 if not matches.empty:
                     st.dataframe(
                         matches[["bank", "date", "name", "category", "amount"]].head(10),
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
 

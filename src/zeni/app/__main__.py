@@ -3,7 +3,7 @@
 import streamlit as st
 
 from zeni.app.pages import categorise, dashboard, import_data, rules, transactions
-from zeni.app.state import connect_db, init_state
+from zeni.app.state import connect_db, disconnect_db, get_db, get_db_name, init_state
 from zeni.database.utils import DEFAULT_PATHWAY, list_databases
 
 
@@ -27,14 +27,24 @@ def main():
         else:
             target = choice
 
-        if st.button("Connect", disabled=not target):
+        connected = st.session_state.db is not None
+
+        if st.button("Connect", disabled=connected or not target):
             connect_db(target)
             st.rerun()
 
-        if st.session_state.db is not None:
-            st.caption(f"Connected: **{st.session_state.db_name}**")
+        if st.button("Disconnect", disabled=not connected):
+            disconnect_db()
+            st.rerun()
 
-    if st.session_state.db is None:
+        if connected:
+            st.caption(f"Connected: **{get_db_name()}**")
+            if st.button("Delete database", type="secondary"):
+                get_db().delete()
+                disconnect_db()
+                st.rerun()
+
+    if not connected:
         st.info("Select a database from the sidebar to get started.")
         st.stop()
 

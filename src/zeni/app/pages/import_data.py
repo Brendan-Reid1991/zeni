@@ -2,22 +2,18 @@
 
 import os
 import tempfile
-from typing import TYPE_CHECKING
 
 import pandas as pd
 import streamlit as st
 
-from zeni.app.state import get_bank_names, invalidate_cache
+from zeni.app.state import get_bank_names, get_db, invalidate_cache
 from zeni.basic_types import Account
-
-if TYPE_CHECKING:
-    from zeni.database import DatabaseManager
 
 
 def page():
     st.header("Import Statement")
 
-    db: DatabaseManager = st.session_state.db
+    db = get_db()
 
     uploaded = st.file_uploader(
         "Upload a bank statement CSV", type=["csv"], key="csv_upload"
@@ -37,7 +33,7 @@ def page():
     # --- Preview ---
     st.subheader("Preview")
     preview_df = pd.read_csv(uploaded)
-    st.dataframe(preview_df.head(10), use_container_width=True, hide_index=True)
+    st.dataframe(preview_df.head(10), width="stretch", hide_index=True)
     st.caption(f"{len(preview_df)} rows in file")
     uploaded.seek(0)
 

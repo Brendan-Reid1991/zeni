@@ -1,19 +1,16 @@
 """Categorise page — bulk assign categories to transactions."""
 
-from typing import TYPE_CHECKING
-
 import streamlit as st
 
-from zeni.app.state import get_all_categories, get_transactions, invalidate_cache
-
-if TYPE_CHECKING:
-    from zeni.database import DatabaseManager
+from zeni.app.components import save_inline_changes, transaction_editor
+from zeni.app.state import get_all_categories, get_db, get_transactions, invalidate_cache
+from zeni.utils import filter_dataframe, parse_amount_query
 
 
 def page():
     st.header("Categorise Transactions")
 
-    db: DatabaseManager = st.session_state.db
+    db = get_db()
     df = get_transactions()
 
     if df.empty:
@@ -31,10 +28,9 @@ def page():
     )
 
     # --- Filters ---
-    fc1, fc2, fc3 = st.columns([2, 2, 1.5])
+    fc1, fc2, fc3, fc4 = st.columns([2, 2, 1.5, 1.5])
     with fc1:
         all_cats = sorted(df["category"].unique().tolist())
-        # Default to "uncategorised" if present
         default_idx = (
             all_cats.index("uncategorised") if "uncategorised" in all_cats else 0
         )
@@ -46,40 +42,37 @@ def page():
     with fc3:
         bank_options = ["All", *sorted(df["bank"].unique().tolist())]
         bank_filter = st.selectbox("Bank", bank_options, key="cat_bank_filter")
+    with fc4:
+        amt_query = st.text_input(
+            "Amount",
+            key="cat_amt",
+            placeholder="e.g. 3.30, >=50",
+        )
 
     # Apply filters
-    view = df[df["category"] == cat_filter].copy()
+    filters: dict = {"category": cat_filter}
     if name_filter:
-        view = view[view["name"].str.contains(name_filter, case=False, na=False)]
+        filters["name"] = f"^{name_filter}"
     if bank_filter != "All":
-        view = view[view["bank"] == bank_filter]
+        filters["bank"] = bank_filter
+    if (amt_filter := parse_amount_query(amt_query)) is not None:
+        filters["amount"] = amt_filter
+    view = filter_dataframe(df, **filters)
 
     if view.empty:
         st.success(f"No '{cat_filter}' transactions found. You're all caught up!")
         return
 
-    # --- Table with checkboxes ---
+    all_categories = get_all_categories()
     view = view.sort_values("date", ascending=False)
-    edit_df = view[["id", "date", "name", "category", "amount", "bank", "notes"]].copy()
-    edit_df.insert(0, "_select", False)
 
-    edited = st.data_editor(
-        edit_df,
-        hide_index=True,
-        use_container_width=True,
-        disabled=["id", "date", "name", "category", "amount", "bank", "notes"],
-        column_config={
-            "_select": st.column_config.CheckboxColumn("", default=False, width="small"),
-            "id": None,  # hidden
-            "date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
-            "amount": st.column_config.NumberColumn("Amount", format="%.2f"),
-        },
-        key="cat_editor",
+    # --- Editable table with checkboxes ---
+    result = transaction_editor(
+        view, key="cat", categories=all_categories, selectable=True
     )
+    save_inline_changes(result, key="cat")
 
-    selected_ids = edited.loc[edited["_select"], "id"].tolist()
-
-    # --- Action bar ---
+    # --- Bulk action bar ---
     st.divider()
     ac1, ac2 = st.columns([2, 2])
     with ac1:
@@ -88,6 +81,8 @@ def page():
         )
     with ac2:
         notes_text = st.text_input("Notes (optional)", key="cat_notes")
+
+    selected_ids = result.selected_ids
 
     bc1, bc2 = st.columns(2)
     with bc1:
@@ -103,22 +98,40 @@ def page():
             invalidate_cache()
             st.success(f"Updated {count} transactions to '{target_cat}'.")
             st.rerun()
+    # Build conditions from all active filters
+    conditions: dict = {}
+    if name_filter:
+        conditions["name"] = f"^{name_filter}"
+    if bank_filter != "All":
+        conditions["bank"] = bank_filter
+    if amt_query.strip():
+        conditions["amount"] = amt_query.strip()
+
+    has_conditions = len(conditions) > 0
+
     with bc2:
         if st.button(
             "Save as rule",
-            disabled=not name_filter,
-            help="Create a permanent rule from the current name filter + category. "
+            disabled=not has_conditions,
+            help="Create a permanent rule from all active filters + category. "
             "Applies retroactively and on all future imports.",
         ):
-            conditions = {"name": f"^{name_filter}"}
             _ = db.add_rule(
                 conditions=conditions,
                 category=target_cat,
                 notes=notes_text.strip() or None,
             )
             invalidate_cache()
+            # Build a human-readable summary
+            parts = []
+            if name_filter:
+                parts.append(f"name contains '{name_filter}'")
+            if bank_filter != "All":
+                parts.append(f"bank = '{bank_filter}'")
+            if amt_query.strip():
+                parts.append(f"amount {amt_query.strip()}")
             st.success(
-                f"Rule created: name contains '{name_filter}' → {target_cat}. "
+                f"Rule created: {' AND '.join(parts)} → {target_cat}. "
                 f"Applied retroactively to all matching transactions."
             )
             st.rerun()

@@ -3,7 +3,7 @@
 import pandas as pd
 import streamlit as st
 
-from zeni.banks.bank import _BANK_REGISTRY
+from zeni.banks.bank import BANK_REGISTRY
 from zeni.basic_types import Incoming, Internal, Outgoing
 from zeni.database import DatabaseManager
 from zeni.database.utils import DEFAULT_PATHWAY
@@ -28,9 +28,34 @@ def connect_db(name: str) -> None:
     invalidate_cache()
 
 
+def disconnect_db() -> None:
+    """Disconnect from the current database."""
+    if st.session_state.db is not None:
+        st.session_state.db.close_connections()
+    st.session_state.db = None
+    st.session_state.db_name = ""
+    invalidate_cache()
+
+
 def invalidate_cache() -> None:
     """Clear the transaction cache so next access re-fetches from DB."""
     st.session_state.tx_cache = None
+
+
+def get_db() -> DatabaseManager:
+    """Return the current database connection.
+
+    Raises RuntimeError if not connected.
+    """
+    db: DatabaseManager | None = st.session_state.db
+    if db is None:
+        raise RuntimeError("Not connected to a database.")
+    return db
+
+
+def get_db_name() -> str:
+    """Return the current database name."""
+    return st.session_state.db_name
 
 
 def get_transactions(force_refresh: bool = False) -> pd.DataFrame:
@@ -39,8 +64,7 @@ def get_transactions(force_refresh: bool = False) -> pd.DataFrame:
     Uses focused=False to include the id column needed for updates.
     """
     if force_refresh or st.session_state.tx_cache is None:
-        db: DatabaseManager = st.session_state.db
-        st.session_state.tx_cache = db.lookup(focused=False)
+        st.session_state.tx_cache = get_db().lookup(focused=False)
     return st.session_state.tx_cache
 
 
@@ -51,4 +75,4 @@ def get_all_categories() -> list[str]:
 
 def get_bank_names() -> list[str]:
     """Return sorted list of registered bank names."""
-    return sorted(_BANK_REGISTRY.keys())
+    return sorted(BANK_REGISTRY.keys())
