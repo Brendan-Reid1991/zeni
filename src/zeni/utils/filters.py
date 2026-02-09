@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import ast
+import operator
+import re
 from collections.abc import Callable
 from decimal import Decimal
 from functools import wraps
@@ -203,6 +206,43 @@ HAS = "^"
 
 NOT = "!"
 """Substring exclusion."""
+
+_OPERATORS: dict[str, Callable] = {
+    ">=": operator.ge,
+    "<=": operator.le,
+    ">": operator.gt,
+    "<": operator.lt,
+}
+_OP_PATTERN = re.compile(r"^(>=|<=|>|<)\s*(.+)$")
+
+
+def parse_amount_query(text: str) -> FilterT | None:
+    """Parse a user-entered amount query into a FilterT.
+
+    Supports plain numbers (exact match) and relational operators (>=, <=, >, <).
+    All comparisons are modulus-agnostic: ``>=50`` matches amounts where
+    ``abs(amount) >= 50``, i.e. both ``amount >= 50`` and ``amount <= -50``.
+
+    Returns None if the text is empty or unparseable.
+    """
+    text = text.strip()
+    if not text:
+        return None
+
+    if m := _OP_PATTERN.match(text):
+        op_str, val_str = m.groups()
+        try:
+            value = float(ast.literal_eval(val_str))
+        except (ValueError, SyntaxError):
+            return None
+        op = _OPERATORS[op_str]
+        return lambda s, _op=op, _v=value: _op(s.abs(), _v)
+
+    try:
+        value = float(ast.literal_eval(text))
+    except (ValueError, SyntaxError):
+        return None
+    return lambda s, _v=value: s.abs() == _v
 
 
 @map_column_name
