@@ -1,7 +1,7 @@
 """The DatabaseManager class creates and manages databases."""
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -85,10 +85,13 @@ class DatabaseManager:
         """The SQLAlchemy engine object."""
         return self._zeni._sql
 
-    def delete(self):
+    def delete(self) -> None:
         """Remove this database."""
-        self._zeni.close_connections()
+        self.close_connections()
         self._zeni.delete()
+
+    def close_connections(self) -> None:
+        self._zeni.close_connections()
 
     def read_in(
         self,
@@ -116,7 +119,9 @@ class DatabaseManager:
 
         with Session(self.backend, expire_on_commit=False) as session:
             import_record = ImportedStatements(
-                bank_name=bank, source_file=statement, import_timestamp=datetime.now()
+                bank_name=bank,
+                source_file=statement,
+                import_timestamp=datetime.now(tz=UTC),
             )
             session.add(import_record)
             session.flush()
@@ -258,7 +263,7 @@ class DatabaseManager:
             if notes:
                 transaction.notes = notes
 
-            transaction.updated_at = datetime.now()
+            transaction.updated_at = datetime.now(tz=UTC)
 
             session.commit()
             return transaction
@@ -290,11 +295,9 @@ class DatabaseManager:
             return 0
 
         updated_count = 0
-        with Session(self.backend) as session:
-            for tid in transaction_ids:
-                if self.update_transaction(tid, category=category, notes=notes):
-                    updated_count += 1
-            session.commit()
+        for tid in transaction_ids:
+            if self.update_transaction(tid, category=category, notes=notes):
+                updated_count += 1
         return updated_count
 
     def add_rule(

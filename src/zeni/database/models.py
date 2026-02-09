@@ -66,13 +66,13 @@ class Transaction(Base):
 
     # Metadata
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.now(tz=UTC)
+        DateTime, nullable=False, default=lambda: datetime.now(tz=UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.now(tz=UTC),
-        onupdate=datetime.now(tz=UTC),
+        default=lambda: datetime.now(tz=UTC),
+        onupdate=lambda: datetime.now(tz=UTC),
     )
 
     import_links: Mapped[list[ImportedStatements]] = relationship(
@@ -133,7 +133,7 @@ class Rule(Base):
     notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.now(tz=UTC)
+        DateTime, nullable=False, default=lambda: datetime.now(tz=UTC)
     )
 
     def __repr__(self) -> str:
@@ -152,7 +152,7 @@ class ImportedStatements(Base):
     # Import metadata
     bank_name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     import_timestamp: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.now(tz=UTC), index=True
+        DateTime, nullable=False, default=lambda: datetime.now(tz=UTC), index=True
     )
     source_file: Mapped[str] = mapped_column(String(500), nullable=False)
     transaction_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -1,10 +1,12 @@
+import ast
 import json
+import re
 from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
 from typing import TypeAlias
 
-from sqlalchemy import ColumnElement, Select
+from sqlalchemy import ColumnElement, Select, func
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm.attributes import QueryableAttribute
 
@@ -18,16 +20,43 @@ DatabaseFilterT: TypeAlias = list[Entry] | tuple[Entry, Entry] | Entry | Predica
 """Possible database filters."""
 
 
+_AMOUNT_OP_PATTERN = re.compile(r"^(>=|<=|>|<)\s*(.+)$")
+
+
+def _parse_amount_condition(text: str) -> DatabaseFilterT:
+    """Convert an amount query string into a SQLAlchemy predicate.
+
+    Supports relational operators (>=, <=, >, <) and plain numbers.
+    All comparisons are modulus-agnostic (applied to abs(amount)).
+    """
+    import operator
+
+    ops = {">=": operator.ge, "<=": operator.le, ">": operator.gt, "<": operator.lt}
+
+    if m := _AMOUNT_OP_PATTERN.match(text.strip()):
+        op_str, val_str = m.groups()
+        value = float(ast.literal_eval(val_str))
+        op = ops[op_str]
+        return lambda col, _op=op, _v=value: _op(func.abs(col), _v)
+
+    # Plain number — exact match on absolute value
+    value = float(ast.literal_eval(text.strip()))
+    return lambda col, _v=value: func.abs(col) == _v
+
+
 def parse_conditions(raw: str) -> dict[TransactionFields, DatabaseFilterT]:
     """Deserialize a rule's JSON conditions into filter_query kwargs.
 
     Two-element lists are converted to tuples (range matching).
+    Amount strings like '>=50' are converted to modulus-agnostic predicates.
     """
     conditions: dict[str, DatabaseFilterT] = json.loads(raw)
     parsed = {}
     for key, value in conditions.items():
         if isinstance(value, list) and len(value) == 2:
             parsed[key] = tuple(value)
+        elif key == "amount" and isinstance(value, str):
+            parsed[key] = _parse_amount_condition(value)
         else:
             parsed[key] = value
     return parsed
