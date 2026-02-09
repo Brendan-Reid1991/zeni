@@ -1,25 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import Enum, auto
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
-    from datetime import date
-    from decimal import Decimal
-
-
-@dataclass(slots=True, frozen=True)
-class Transaction:
-    """Store the important details of a transaction."""
-
-    date: date
-    description: str
-    amount: Decimal
-    account: str
-    currency: str | None = None
-    uuid: str | None = None
 
 
 class ZeniStrEnum(str, Enum):
@@ -43,8 +24,8 @@ class ZeniStrEnum(str, Enum):
 class Account(ZeniStrEnum):
     """Account enum."""
 
-    DEBIT = auto()
-    CREDIT = auto()
+    CURRENT = auto()
+    CREDIT_CARD = auto()
     SAVINGS = auto()
     ISA = auto()
 
@@ -89,37 +70,27 @@ class Internal(Payment):
 
 
 class StandardColumns(ZeniStrEnum):
+    """The standard columns to be used when parsing bank statements into CSV.
+
+    Ordering in this class is implicitly the "preferred" ordering.
+
+    """
+
     DATE = auto()
+    TIME = auto()
     NAME = auto()
-    NOTES = auto()
     CATEGORY = auto()
     AMOUNT = auto()
     CURRENCY = auto()
+    NOTES = auto()
     BALANCE = auto()
 
 
-class Addressable:
-    def __init__(self, iterable: Sequence[str]):
-        self.iterable: Sequence[str] = iterable
-        if not all(isinstance(x, str) for x in iterable):
-            raise ValueError(
-                "To make an iterable addressable all elements must be strings."
-            )
-        for item in self.iterable:
-            attr_name = item.lower().replace(" ", "_").replace("-", "_")
-            if attr_name.isidentifier():
-                setattr(self, attr_name, item)
-            else:
-                raise ValueError(f"Cannot convert '{item}' to a valid attribute name.")
-
-    def __iter__(self) -> Iterator[str]:
-        return self.iterable.__iter__()
-
-    def __len__(self) -> int:
-        return len(self.iterable)
-
-    def __getitem__(self, index: int) -> str:
-        return self.iterable[index]
-
-    def __repr__(self) -> str:
-        return self.iterable.__repr__()
+TransactionFields = ZeniStrEnum(
+    "TransactionFields",
+    ["ID", "BANK", "ACCOUNT"]
+    + [entry.name for entry in StandardColumns]
+    + ["CREATED_AT", "UPDATED_AT"],
+)
+"""Enum for defining the fields used in database entries. Same as StandardColumns
+with other metadata fields."""

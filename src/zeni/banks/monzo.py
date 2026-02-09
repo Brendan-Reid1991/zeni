@@ -7,12 +7,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import pandas as pd
 
-from zeni.banks.bank import Bank, register_bank
+from zeni.banks.bank import Bank
 from zeni.basic_types import Incoming, Internal, Outgoing, Payment, StandardColumns
 from zeni.utils import filter_dataframe
 
 
-@register_bank
 class Monzo(Bank):
     """Defines parsing rules for Monzo bank statements."""
 
@@ -20,6 +19,7 @@ class Monzo(Bank):
     def column_map(cls) -> dict[str, StandardColumns]:
         return {
             "Name": StandardColumns.NAME,
+            "Time": StandardColumns.TIME,
             "Amount": StandardColumns.AMOUNT,
             "Date": StandardColumns.DATE,
             "Description": StandardColumns.NOTES,
@@ -37,9 +37,9 @@ class Monzo(Bank):
             "Groceries": Outgoing.GROCERIES,
             "Income": Incoming.INCOME,
             "Personal Care": Outgoing.LEISURE,
-            "SAvings": Internal.SAVINGS,
+            "Savings": Internal.SAVINGS,
             "Shopping": Outgoing.LEISURE,
-            "TRansfers": Internal.TRANSFER,
+            "Transfers": Internal.TRANSFER,
         }
 
 

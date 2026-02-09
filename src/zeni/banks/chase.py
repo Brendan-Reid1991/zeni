@@ -2,25 +2,33 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 import pandas as pd
 
-from zeni.banks.bank import PREFERRED_ORDERING, Bank, register_bank
+from zeni.banks.bank import Bank
 from zeni.basic_types import Incoming, Internal, Outgoing, Payment, StandardColumns
 from zeni.utils import filter_dataframe
 
 
-@register_bank
 class Chase(Bank):
     """Defines parsing rules for Chase bank statements."""
+
+    @staticmethod
+    def load(filepath: Path | str) -> pd.DataFrame:
+        return pd.read_csv(filepath, skiprows=1)
 
     @classmethod
     def column_map(cls) -> dict[str, StandardColumns]:
         return {
-            "Name": StandardColumns.NAME,
+            "Transaction Description": StandardColumns.NAME,
+            "Time": StandardColumns.TIME,
             "Amount": StandardColumns.AMOUNT,
             "Date": StandardColumns.DATE,
-            "Description": StandardColumns.NOTES,
-            "Category": StandardColumns.CATEGORY,
+            "Transaction Type": StandardColumns.CATEGORY,
             "Currency": StandardColumns.CURRENCY,
             "Balance": StandardColumns.BALANCE,
         }
@@ -31,38 +39,9 @@ class Chase(Bank):
             "Purchase": Outgoing.LEISURE,
             "Transfer": Internal.TRANSFER,
             "Payment": Incoming.INCOME,
+            "Refund": Incoming.REFUND,
+            "Direct Debit": Outgoing.BILL,
         }
-
-
-@Chase.pre_process()
-def unpack_statement(chase_statement: pd.DataFrame) -> pd.DataFrame:
-    """The statements from chase come as a dataframe with a single column,
-    and transactions are recorded in a pd.Series in each row.
-
-    Each pd.Series only stores the balance as data, but the .name of the Series is
-    as such:
-    ```python
-    ('17 May 2025', '10:54', 'Purchase', 'Posh Pig', '-7.10', 'GBP')
-    ```
-    where that is date, time, category, notes, amount and currency.
-
-    This function extracts this information and properly formats it in a dataframe.
-    """
-    data = []
-    for _, entry in list(chase_statement.iterrows())[1:]:
-        balance, details = entry.iloc[0], entry.name
-        data.append(
-            [
-                details[0],
-                details[3],
-                details[2],
-                details[4],
-                details[5],
-                details[3],
-                balance,
-            ]
-        )
-    return pd.DataFrame(data, columns=PREFERRED_ORDERING)
 
 
 @Chase.post_process()
@@ -81,4 +60,32 @@ def classify_payments(chase_statement: pd.DataFrame) -> pd.DataFrame:
     payments: pd.DataFrame = filter_dataframe(chase_statement, category="^income")
     outgoing_index = filter_dataframe(payments, amount=lambda x: x < 0).index
     chase_statement.loc[outgoing_index, StandardColumns.CATEGORY] = Outgoing.BILL
+    return chase_statement
+
+
+@Chase.post_process()
+def withdrawals(chase_statement: pd.DataFrame) -> pd.DataFrame:
+    """Cash withdrawals can appear in multiple different formats, this unifies them."""
+    payments: pd.DataFrame = filter_dataframe(chase_statement, category="^withdrawal")
+    indices = payments.index
+    chase_statement.loc[indices, StandardColumns.CATEGORY] = Outgoing.CASH_WITHDRAWAL
+    chase_statement.loc[indices, StandardColumns.NOTES] = payments[
+        StandardColumns.CATEGORY
+    ]
+    return chase_statement
+
+
+@Chase.post_process()
+def foreign_purchases(chase_statement: pd.DataFrame) -> pd.DataFrame:
+    """Foreign purchases hold the exchange rate in the category field.
+
+    This means each foreign purchase is essentially it's own category. This
+    post processing steps moves the FX information into the Notes field.
+    """
+    fx_info = chase_statement[StandardColumns.CATEGORY].str.extract(
+        r"Purchase \| (.+)", expand=False
+    )
+    fx_mask = fx_info.notna()
+    chase_statement.loc[fx_mask, StandardColumns.NOTES] = fx_info[fx_mask]
+    chase_statement.loc[fx_mask, StandardColumns.CATEGORY] = Outgoing.LEISURE
     return chase_statement

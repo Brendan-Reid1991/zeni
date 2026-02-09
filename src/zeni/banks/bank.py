@@ -1,15 +1,13 @@
-"""This module defines the Bank protocol, as well as standardization procedures."""
+"""This module defines the Bank base class, as well as standardization procedures."""
 
 from __future__ import annotations
 
+import logging
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from decimal import Decimal
-from typing import (
-    ClassVar,
-    Protocol,
-    TypeAlias,
-    runtime_checkable,
-)
+from html import unescape
+from typing import TYPE_CHECKING, ClassVar, TypeAlias
 
 import pandas as pd
 
@@ -17,39 +15,58 @@ from zeni.basic_types import Payment, StandardColumns
 from zeni.utils import filter_dataframe
 from zeni.utils.fuzzy_matcher import NoMatchingStringsError, fuzzy_string_matcher
 
-PREFERRED_ORDERING: list[str] = [
-    StandardColumns.DATE,
-    StandardColumns.NAME,
-    StandardColumns.CATEGORY,
-    StandardColumns.AMOUNT,
-    StandardColumns.CURRENCY,
-    StandardColumns.NOTES,
-    StandardColumns.BALANCE,
-]
-"""The current preferred ordering of standard columns."""
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
 
 DataframeProcessor: TypeAlias = Callable[[pd.DataFrame], pd.DataFrame]
 ProcessingStep: TypeAlias = list[tuple[int, DataframeProcessor]]
 
 
-@runtime_checkable
-class Bank(Protocol):
-    """This protocol defines the interface for all implemented institutions.
+BANK_REGISTRY: dict[str, type[Bank]] = {}
+"""The registry records all implemented institutions. To be registered, they
+must be imported into the zeni/bank/__init__.py"""
 
-    It requires no initialization, only classmethods column_map and category_map to
-    be defined. THese define the mapping from Bank-specific columns and categories
-    to Zenei-defined standards.
+
+def bank_directory(name: str) -> type[Bank]:
+    """Return the Bank class for the input bank name.
+
+    Supports fuzzy string matching.
+    """
+    registered = tuple(BANK_REGISTRY.keys())
+    try:
+        return BANK_REGISTRY[fuzzy_string_matcher(name, registered)]
+    except NoMatchingStringsError as exc:
+        raise KeyError(
+            f"Invalid bank name: '{name}'. Supported banks are: {registered}"
+        ) from exc
+
+
+class Bank(ABC):
+    """Abstract base class for all implemented institutions.
+
+    Subclasses must define classmethods column_map and category_map.
+    These define the mapping from Bank-specific columns and categories
+    to Zeni-defined standards.
 
     Optionally, pre- and post-processing steps can be defined to ensure the input
     dataframe is output in the correct format.
 
     """
 
+    @staticmethod
+    def load(filepath: Path | str) -> pd.DataFrame:
+        return pd.read_csv(filepath)
+
     @classmethod
+    @abstractmethod
     def column_map(cls) -> dict[str, StandardColumns]:
         """Map bank-specific columns to Zeni standard columns."""
 
     @classmethod
+    @abstractmethod
     def category_map(cls) -> dict[str, Payment]:
         """Map the bank-specific categories to Zeni standard categories."""
 
@@ -60,6 +77,7 @@ class Bank(Protocol):
         """Initialize processing step lists for each subclass."""
         cls.pre_processing_steps = []
         cls.post_processing_steps = []
+        BANK_REGISTRY[cls.__name__] = cls
 
     @classmethod
     def pre_process(
@@ -69,7 +87,6 @@ class Bank(Protocol):
 
         def decorator(fn: DataframeProcessor) -> DataframeProcessor:
             cls.pre_processing_steps.append((order, fn))
-            # cls.pre_processing_steps.sort(key=lambda x: x[0])
             return fn
 
         return decorator
@@ -87,40 +104,15 @@ class Bank(Protocol):
         return decorator
 
 
-_BANK_REGISTRY: dict[str, type[Bank]] = {}
-"""The registry records all implemented institutions. To be registered, they
-must be imported into the zeni/bank/__init__.py"""
-
-
-def register_bank(cls: type[Bank]) -> type[Bank]:
-    """Decorator to register a bank implementation."""
-    _BANK_REGISTRY[cls.__name__] = cls
-    return cls
-
-
-def bank_directory(name: str) -> type[Bank]:
-    """Return the Bank class for the input bank name.
-
-    Supports fuzzy string matching.
-    """
-    registered = tuple(_BANK_REGISTRY.keys())
-    try:
-        return _BANK_REGISTRY[fuzzy_string_matcher(name, registered)]
-    except NoMatchingStringsError as exc:
-        raise KeyError(
-            f"Invalid bank name: '{name}'. Supported banks are: {registered}"
-        ) from exc
-
-
-def standardize(bank: str, statement: pd.DataFrame) -> pd.DataFrame:
+def standardize(bank: str, filepath: Path | str) -> pd.DataFrame:
     """Standardize a bank statement using the provided bank name.
 
     Parameters
     ----------
     bank: str
         The name of the bank the statement is from.
-    statement: pd.DataFrame
-        The dataframe file for the statement.
+    filepath: Path | str
+        The pathway to the statement.
 
     Returns
     -------
@@ -128,23 +120,33 @@ def standardize(bank: str, statement: pd.DataFrame) -> pd.DataFrame:
         A standardized dataframe.
     """
     bank_cls = bank_directory(bank)
+    logger.debug("Resolved bank %r to %s", bank, bank_cls.__name__)
+
+    statement = bank_cls.load(filepath)
+    logger.debug("Loaded %d rows from %s", len(statement), filepath)
 
     for _, _pre in sorted(bank_cls.pre_processing_steps, key=lambda x: x[0]):
+        logger.debug("Running pre-processing: %s", _pre.__name__)
         statement = _pre(statement)
-
+    if StandardColumns.NOTES not in bank_cls.column_map().values():
+        statement[StandardColumns.NOTES] = pd.Series([], dtype="str")
     statement = standardize_dtypes(
-        statement.rename(columns=bank_cls.column_map())[PREFERRED_ORDERING]
+        statement.rename(columns=bank_cls.column_map())[[*StandardColumns]]
     )
 
     for old_category, new_category in bank_cls.category_map().items():
         statement.loc[
-            filter_dataframe(statement, category="^" + old_category).index,
+            filter_dataframe(statement, category=old_category).index,
             StandardColumns.CATEGORY,
         ] = new_category
 
     for _, _post in sorted(bank_cls.post_processing_steps, key=lambda x: x[0]):
+        logger.debug("Running post-processing: %s", _post.__name__)
         statement = _post(statement)
 
+    logger.info(
+        "Standardized %d transactions from %s", len(statement), bank_cls.__name__
+    )
     return statement
 
 
@@ -170,17 +172,14 @@ def standardize_dtypes(
     df = df.copy()
 
     date_column = StandardColumns.DATE
-
     df[date_column] = pd.to_datetime(df[date_column], format="mixed", dayfirst=True)
 
-    amount_columns = [
-        col
-        for col in df.columns
-        if any(
-            keyword in col.lower()
-            for keyword in [StandardColumns.AMOUNT, StandardColumns.BALANCE]
-        )
-    ]
+    time_column = StandardColumns.TIME
+    df[time_column] = pd.to_datetime(df[time_column], format="mixed").dt.strftime(
+        "%H:%M:%S"
+    )
+
+    amount_columns = [StandardColumns.AMOUNT, StandardColumns.BALANCE]
 
     for col in amount_columns:
         if col in df.columns:
@@ -197,6 +196,6 @@ def standardize_dtypes(
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
     for col in df.select_dtypes(include=["object"]).columns:
-        df[col] = df[col].astype("string")
+        df[col] = df[col].map(unescape, na_action="ignore").astype("string")
 
     return df
