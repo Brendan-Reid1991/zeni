@@ -2,6 +2,11 @@
 
 import json
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 
 import pandas as pd
 from sqlalchemy import inspect, select
@@ -12,7 +17,12 @@ from zeni.banks.bank import standardize
 from zeni.basic_types import Account, StandardColumns, TransactionFields
 from zeni.database.engine import Engine, SQLEngine
 from zeni.database.models import ImportedStatements, Rule, Transaction
-from zeni.database.utils import DEFAULT_PATHWAY, DatabaseFilterT, filter_query
+from zeni.database.utils import (
+    DEFAULT_PATHWAY,
+    DatabaseFilterT,
+    filter_query,
+    parse_conditions,
+)
 from zeni.utils import coerce_to
 
 
@@ -206,7 +216,7 @@ class DatabaseManager:
         name: str | None = None,
         category: str | None = None,
         notes: str | None = None,
-    ) -> Transaction:
+    ) -> Transaction | None:
         """Update user-editable fields of a transaction.
 
         Parameters
@@ -222,14 +232,18 @@ class DatabaseManager:
 
         Returns
         -------
-        Transaction
-            The updated transaction.
+        Transaction | None
+            The updated transaction. If name, category and notes are all "None",
+            "None" is returned.
 
         Raises
         ------
         DatabaseRetrievalError
             If no transaction with the given ID exists.
         """
+        if not any([name, category, notes]):
+            return None
+
         with Session(self.backend, expire_on_commit=False) as session:
             transaction = session.get(Transaction, transaction_id)
             if transaction is None:
@@ -237,12 +251,14 @@ class DatabaseManager:
                     f"No transaction with ID '{transaction_id}' found."
                 )
 
-            if name is not None:
+            if name:
                 transaction.name = name
-            if category is not None:
+            if category:
                 transaction.category = category
-            if notes is not None:
+            if notes:
                 transaction.notes = notes
+
+            transaction.updated_at = datetime.now()
 
             session.commit()
             return transaction
@@ -276,32 +292,10 @@ class DatabaseManager:
         updated_count = 0
         with Session(self.backend) as session:
             for tid in transaction_ids:
-                transaction = session.get(Transaction, tid)
-                if transaction is not None:
-                    if category is not None:
-                        transaction.category = category
-                    if notes is not None:
-                        transaction.notes = notes
+                if self.update_transaction(tid, category=category, notes=notes):
                     updated_count += 1
             session.commit()
         return updated_count
-
-    # --- Rules ---
-
-    @staticmethod
-    def _parse_conditions(raw: str) -> dict:
-        """Deserialize a rule's JSON conditions into filter_query kwargs.
-
-        Two-element lists are converted to tuples (range matching).
-        """
-        conditions = json.loads(raw)
-        parsed = {}
-        for key, value in conditions.items():
-            if isinstance(value, list) and len(value) == 2:
-                parsed[key] = tuple(value)
-            else:
-                parsed[key] = value
-        return parsed
 
     def add_rule(
         self,
@@ -398,12 +392,15 @@ class DatabaseManager:
             rules = session.execute(stmt).scalars().all()
 
             for rule in rules:
-                conditions = self._parse_conditions(rule.conditions)
-                match_stmt = filter_query(select(Transaction), Transaction, **conditions)
+                match_stmt = filter_query(
+                    select(Transaction), Transaction, **parse_conditions(rule.conditions)
+                )
                 if transaction_ids:
                     match_stmt = match_stmt.where(Transaction.id.in_(transaction_ids))
 
-                matches = session.execute(match_stmt).scalars().all()
+                matches: Sequence[Transaction] = (
+                    session.execute(match_stmt).scalars().all()
+                )
                 for txn in matches:
                     txn.category = rule.category
                     if rule.notes is not None:

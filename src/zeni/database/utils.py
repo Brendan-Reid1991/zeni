@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
@@ -7,6 +8,7 @@ from sqlalchemy import ColumnElement, Select
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm.attributes import QueryableAttribute
 
+from zeni.basic_types import TransactionFields
 from zeni.utils.filters import HAS, NOT, Entry
 
 Predicate: TypeAlias = Callable[[QueryableAttribute], ColumnElement[bool]]
@@ -14,6 +16,21 @@ Predicate: TypeAlias = Callable[[QueryableAttribute], ColumnElement[bool]]
 
 DatabaseFilterT: TypeAlias = list[Entry] | tuple[Entry, Entry] | Entry | Predicate
 """Possible database filters."""
+
+
+def parse_conditions(raw: str) -> dict[TransactionFields, DatabaseFilterT]:
+    """Deserialize a rule's JSON conditions into filter_query kwargs.
+
+    Two-element lists are converted to tuples (range matching).
+    """
+    conditions: dict[str, DatabaseFilterT] = json.loads(raw)
+    parsed = {}
+    for key, value in conditions.items():
+        if isinstance(value, list) and len(value) == 2:
+            parsed[key] = tuple(value)
+        else:
+            parsed[key] = value
+    return parsed
 
 
 class DatabaseFilters:
