@@ -7,12 +7,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import pandas as pd
 
-from zeni.banks.bank import Bank, register_bank
+from zeni.banks.bank import Bank
 from zeni.basic_types import Incoming, Internal, Outgoing, Payment, StandardColumns
 from zeni.utils import filter_dataframe
 
 
-@register_bank
 class Monzo(Bank):
     """Defines parsing rules for Monzo bank statements."""
 
@@ -40,7 +39,7 @@ class Monzo(Bank):
             "Personal Care": Outgoing.LEISURE,
             "Savings": Internal.SAVINGS,
             "Shopping": Outgoing.LEISURE,
-            "TRansfers": Internal.TRANSFER,
+            "Transfers": Internal.TRANSFER,
         }
 
 

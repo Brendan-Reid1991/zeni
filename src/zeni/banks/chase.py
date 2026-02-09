@@ -9,12 +9,11 @@ if TYPE_CHECKING:
 
 import pandas as pd
 
-from zeni.banks.bank import Bank, register_bank
+from zeni.banks.bank import Bank
 from zeni.basic_types import Incoming, Internal, Outgoing, Payment, StandardColumns
 from zeni.utils import filter_dataframe
 
 
-@register_bank
 class Chase(Bank):
     """Defines parsing rules for Chase bank statements."""
 
@@ -73,4 +72,20 @@ def withdrawals(chase_statement: pd.DataFrame) -> pd.DataFrame:
     chase_statement.loc[indices, StandardColumns.NOTES] = payments[
         StandardColumns.CATEGORY
     ]
+    return chase_statement
+
+
+@Chase.post_process()
+def foreign_purchases(chase_statement: pd.DataFrame) -> pd.DataFrame:
+    """Foreign purchases hold the exchange rate in the category field.
+
+    This means each foreign purchase is essentially it's own category. This
+    post processing steps moves the FX information into the Notes field.
+    """
+    fx_info = chase_statement[StandardColumns.CATEGORY].str.extract(
+        r"Purchase \| (.+)", expand=False
+    )
+    fx_mask = fx_info.notna()
+    chase_statement.loc[fx_mask, StandardColumns.NOTES] = fx_info[fx_mask]
+    chase_statement.loc[fx_mask, StandardColumns.CATEGORY] = Outgoing.LEISURE
     return chase_statement
