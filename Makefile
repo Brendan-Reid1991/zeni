@@ -47,6 +47,9 @@ format: ## Auto-format code
 fmt-check: ## Check formatting without writing
 	$(UV) run $(RUFF) format --check $(CODE)
 
+bank: ## run the app
+	$(UV) run $(PY) -m zeni.app
+
 test: ## Run test suite
 	$(UV) run pytest --cov=src --cov-fail-under=95 --cov-report term-missing --disable-warnings
 

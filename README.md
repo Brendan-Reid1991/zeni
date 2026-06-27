@@ -11,10 +11,13 @@ Multi-bank budgeting tool: ingest CSV statements, auto-classify transactions via
 - **SQLite storage** — all transactions, import history, and rules stored via SQLAlchemy ORM.
 
 ## Quickstart
-
+The package is managed with `uv`, install it from [here](https://docs.astral.sh/uv/getting-started/installation/). The `Makefile` provides an installation command that creates a virtual environment.
 ```bash
 # install with uv (recommended)
 make install
+
+# activate the venv
+source .venv/bin/activate
 
 # run the Streamlit app
 python -m zeni.app
