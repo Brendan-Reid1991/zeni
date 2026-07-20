@@ -13,7 +13,7 @@ from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from zeni.banks.bank import standardize
+from zeni.banks.bank import bank_directory
 from zeni.basic_types import Account, StandardColumns, TransactionFields
 from zeni.database.engine import Engine, SQLEngine
 from zeni.database.models import ImportedStatements, Rule, Transaction
@@ -115,7 +115,7 @@ class DatabaseManager:
         ImportedStatements
             ImportedStatements record with import statistics
         """
-        standardized: pd.DataFrame = standardize(bank, statement)
+        standardized: pd.DataFrame = bank_directory(bank)(statement).standardize()
 
         with Session(self.backend, expire_on_commit=False) as session:
             import_record = ImportedStatements(

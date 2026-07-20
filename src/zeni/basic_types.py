@@ -1,36 +1,28 @@
 from __future__ import annotations
 
-from enum import Enum, auto
+from datetime import UTC, date, datetime, time
+from decimal import Decimal
+from enum import StrEnum, auto
+from typing import NamedTuple, TypeAlias
 
 
-class ZeniStrEnum(str, Enum):
-    """A base class for all str enums in Zeni."""
-
-    value: str
-
-    def __str__(self) -> str:
-        return self.value
-
-    def __repr__(self) -> str:
-        return self.value
-
-    @staticmethod
-    def _generate_next_value_(
-        name: str, start: int, count: int, last_values: list[str]
-    ) -> str:
-        return name.lower()
-
-
-class Account(ZeniStrEnum):
-    """Account enum."""
+class AccountType(StrEnum):
+    """Basic enum to capture kinds of bank accounts."""
 
     CURRENT = auto()
-    CREDIT_CARD = auto()
     SAVINGS = auto()
-    ISA = auto()
+    INVESTMENT = auto()
+    CREDIT = auto()
 
 
-class Payment(ZeniStrEnum): ...
+class Account(NamedTuple):
+    """Data structure for storing information about an account."""
+
+    bank: str
+    type: AccountType
+
+
+class Payment(StrEnum): ...
 
 
 class Outgoing(Payment):
@@ -69,7 +61,7 @@ class Internal(Payment):
     ROUNDUP = auto()
 
 
-class StandardColumns(ZeniStrEnum):
+class StandardColumns(StrEnum):
     """The standard columns to be used when parsing bank statements into CSV.
 
     Ordering in this class is implicitly the "preferred" ordering.
@@ -81,12 +73,27 @@ class StandardColumns(ZeniStrEnum):
     NAME = auto()
     CATEGORY = auto()
     AMOUNT = auto()
+    BALANCE = auto()
     CURRENCY = auto()
     NOTES = auto()
-    BALANCE = auto()
 
 
-TransactionFields = ZeniStrEnum(
+COLUMN_DTYPES: TypeAlias = str | date | time | Decimal | float | int
+_NOW = datetime.now(tz=UTC)
+
+COLUMN_DEFAULTS: dict[StandardColumns, COLUMN_DTYPES] = {
+    StandardColumns.DATE: _NOW.date(),
+    StandardColumns.TIME: _NOW.time(),
+    StandardColumns.NAME: "None",
+    StandardColumns.CATEGORY: "None",
+    StandardColumns.AMOUNT: 0,
+    StandardColumns.CURRENCY: "GBP",
+    StandardColumns.NOTES: "",
+    StandardColumns.BALANCE: 0,
+}
+
+
+TransactionFields = StrEnum(
     "TransactionFields",
     ["ID", "BANK", "ACCOUNT"]
     + [entry.name for entry in StandardColumns]
