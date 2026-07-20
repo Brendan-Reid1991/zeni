@@ -124,7 +124,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def coerce_to(valid_fields: tuple[str, ...]):
+def coerce_kwargs(valid_fields: tuple[str, ...]):
     """A decorator to coerce kwargs of a function call to a set of valid field names."""
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:

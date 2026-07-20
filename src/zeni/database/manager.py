@@ -23,7 +23,7 @@ from zeni.database.utils import (
     filter_query,
     parse_conditions,
 )
-from zeni.utils import coerce_to
+from zeni.utils import coerce_kwargs
 
 
 class DatabaseRetrievalError(Exception): ...
@@ -158,7 +158,7 @@ class DatabaseManager:
 
         return import_record
 
-    @coerce_to(tuple(TransactionFields))
+    @coerce_kwargs(tuple(TransactionFields))
     def lookup(self, focused: bool = True, **kwargs) -> pd.DataFrame:
         """Look up transactions using filter patterns.
 
