@@ -7,47 +7,34 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import pandas as pd
 
-from zeni.banks.bank import Bank
-from zeni.basic_types import Incoming, Internal, Outgoing, Payment, StandardColumns
+from zeni.banks.bank import IGNORE_COLUMN, Bank
+from zeni.basic_types import Internal, Outgoing, StandardColumns
 from zeni.utils import filter_dataframe
 
 
 class Monzo(Bank):
     """Defines parsing rules for Monzo bank statements."""
 
-    @classmethod
-    def column_map(cls) -> dict[str, StandardColumns]:
-        return {
-            "Name": StandardColumns.NAME,
-            "Time": StandardColumns.TIME,
-            "Amount": StandardColumns.AMOUNT,
-            "Date": StandardColumns.DATE,
-            "Description": StandardColumns.NOTES,
-            "Category": StandardColumns.CATEGORY,
-            "Currency": StandardColumns.CURRENCY,
-        }
-
-    @classmethod
-    def category_map(cls) -> dict[str, Payment]:
-        return {
-            "Bills": Outgoing.BILL,
-            "Eating out": Outgoing.LEISURE,
-            "Entertainment": Outgoing.LEISURE,
-            "General": Outgoing.UNCATEGORISED,
-            "Groceries": Outgoing.GROCERIES,
-            "Income": Incoming.INCOME,
-            "Personal Care": Outgoing.LEISURE,
-            "Savings": Internal.SAVINGS,
-            "Shopping": Outgoing.LEISURE,
-            "Transfers": Internal.TRANSFER,
-        }
-
-
-@Monzo.pre_process()
-def add_balance_column(statement: pd.DataFrame) -> pd.DataFrame:
-    """Monzo statements do not provide a Balance column, this adds on."""
-    statement[StandardColumns.BALANCE] = statement["Amount"].cumsum()
-    return statement
+    COLUMNS = (
+        IGNORE_COLUMN,
+        StandardColumns.DATE,
+        StandardColumns.TIME,
+        IGNORE_COLUMN,
+        StandardColumns.NAME,
+        IGNORE_COLUMN,
+        StandardColumns.CATEGORY,
+        StandardColumns.AMOUNT,
+        StandardColumns.CURRENCY,
+        IGNORE_COLUMN,
+        IGNORE_COLUMN,
+        StandardColumns.NOTES,
+        IGNORE_COLUMN,
+        IGNORE_COLUMN,
+        IGNORE_COLUMN,
+        IGNORE_COLUMN,
+        IGNORE_COLUMN,
+        IGNORE_COLUMN,
+    )
 
 
 @Monzo.post_process()
@@ -63,7 +50,7 @@ def flex_payments(statement: pd.DataFrame) -> pd.DataFrame:
 def overdraft_fees(statement: pd.DataFrame) -> pd.DataFrame:
     """Overdraft fees are registered as an UNCATEGORISED payment, this step
     appropriately changes the category to FEE."""
-    overdraft_rows = filter_dataframe(statement, notes="^overdraft fees").index
+    overdraft_rows = filter_dataframe(statement, notes="^overdraft").index
     statement.loc[overdraft_rows, StandardColumns.NAME] = "Overdraft fees"
     statement.loc[overdraft_rows, StandardColumns.CATEGORY] = Outgoing.FEE
     return statement

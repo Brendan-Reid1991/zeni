@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Callable
-from decimal import Decimal
-from html import unescape
 from typing import TYPE_CHECKING, ClassVar, TypeAlias
 
 import pandas as pd
 
-from zeni.basic_types import Payment, StandardColumns
-from zeni.utils import filter_dataframe
+from zeni.basic_types import COLUMN_DEFAULTS, StandardColumns
 from zeni.utils.fuzzy_matcher import NoMatchingStringsError, fuzzy_string_matcher
+
+from .utils import IGNORE_COLUMN, standardize_dtypes
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -47,37 +46,31 @@ def bank_directory(name: str) -> type[Bank]:
 class Bank(ABC):
     """Abstract base class for all implemented institutions.
 
-    Subclasses must define classmethods column_map and category_map.
-    These define the mapping from Bank-specific columns and categories
-    to Zeni-defined standards.
+    Subclasses must define the COLUMNS class variable, which maps each column
+    in the bank's CSV to a StandardColumn (or IGNORE_COLUMN to drop it).
 
-    Optionally, pre- and post-processing steps can be defined to ensure the input
-    dataframe is output in the correct format.
-
+    Optionally, pre- and post-processing steps can be registered via the
+    @pre_process and @post_process decorators to transform the statement
+    before and after column trimming.
     """
 
-    @staticmethod
-    def load(filepath: Path | str) -> pd.DataFrame:
-        return pd.read_csv(filepath)
+    COLUMNS: ClassVar[tuple[str, ...]]
 
-    @classmethod
-    @abstractmethod
-    def column_map(cls) -> dict[str, StandardColumns]:
-        """Map bank-specific columns to Zeni standard columns."""
-
-    @classmethod
-    @abstractmethod
-    def category_map(cls) -> dict[str, Payment]:
-        """Map the bank-specific categories to Zeni standard categories."""
-
-    pre_processing_steps: ClassVar[ProcessingStep] = []
-    post_processing_steps: ClassVar[ProcessingStep] = []
+    pre_processing_steps: ClassVar[ProcessingStep]
+    post_processing_steps: ClassVar[ProcessingStep]
 
     def __init_subclass__(cls) -> None:
         """Initialize processing step lists for each subclass."""
         cls.pre_processing_steps = []
         cls.post_processing_steps = []
         BANK_REGISTRY[cls.__name__] = cls
+
+    def __init__(self, filepath: Path | str) -> None:
+        self._statement = self.load(filepath)
+
+    @classmethod
+    def load(cls, filepath: Path | str) -> pd.DataFrame:
+        return pd.read_csv(filepath)
 
     @classmethod
     def pre_process(
@@ -103,99 +96,66 @@ class Bank(ABC):
 
         return decorator
 
+    def standardize(self) -> pd.DataFrame:
+        """Standardize the raw statement into the canonical Zeni format.
 
-def standardize(bank: str, filepath: Path | str) -> pd.DataFrame:
-    """Standardize a bank statement using the provided bank name.
+        Returns a new DataFrame; the raw statement stored on the instance
+        is not mutated.
+        """
+        statement = self._statement
 
-    Parameters
-    ----------
-    bank: str
-        The name of the bank the statement is from.
-    filepath: Path | str
-        The pathway to the statement.
+        if len(self.COLUMNS) != len(statement.columns):
+            raise ValueError(
+                f"Column map with {len(self.COLUMNS)} items is insufficient for "
+                f"{len(statement.columns)} columns in the statement."
+                " To ignore some columns, populate that index with IGNORE_COLUMN."
+            )
 
-    Returns
-    -------
-    pd.DataFrame
-        A standardized dataframe.
-    """
-    bank_cls = bank_directory(bank)
-    logger.debug("Resolved bank %r to %s", bank, bank_cls.__name__)
+        for _, fn in sorted(self.pre_processing_steps, key=lambda x: x[0]):
+            logger.debug(
+                "Running %s pre-processing: %s", type(self).__name__, fn.__name__
+            )
+            statement = fn(statement)
 
-    statement = bank_cls.load(filepath)
-    logger.debug("Loaded %d rows from %s", len(statement), filepath)
+        statement = self._trim(statement)
 
-    for _, _pre in sorted(bank_cls.pre_processing_steps, key=lambda x: x[0]):
-        logger.debug("Running pre-processing: %s", _pre.__name__)
-        statement = _pre(statement)
-    if StandardColumns.NOTES not in bank_cls.column_map().values():
-        statement[StandardColumns.NOTES] = pd.Series([], dtype="str")
-    statement = standardize_dtypes(
-        statement.rename(columns=bank_cls.column_map())[[*StandardColumns]]
-    )
+        for _, fn in sorted(self.post_processing_steps, key=lambda x: x[0]):
+            logger.debug(
+                "Running %s post-processing: %s", type(self).__name__, fn.__name__
+            )
+            statement = fn(statement)
 
-    for old_category, new_category in bank_cls.category_map().items():
-        statement.loc[
-            filter_dataframe(statement, category=old_category).index,
-            StandardColumns.CATEGORY,
-        ] = new_category
+        has_balance = StandardColumns.BALANCE in statement.columns
 
-    for _, _post in sorted(bank_cls.post_processing_steps, key=lambda x: x[0]):
-        logger.debug("Running post-processing: %s", _post.__name__)
-        statement = _post(statement)
+        missing_columns = [
+            col
+            for col, _ in StandardColumns._value2member_map_.items()
+            if col not in statement.columns
+        ]
+        for missing in missing_columns:
+            statement[missing] = pd.Series([COLUMN_DEFAULTS[missing]] * len(statement))
 
-    logger.info(
-        "Standardized %d transactions from %s", len(statement), bank_cls.__name__
-    )
-    return statement
+        logger.info(
+            "Standardized %d transactions from %s", len(statement), type(self).__name__
+        )
+        statement = standardize_dtypes(statement[list(map(str, StandardColumns))])
 
+        if not has_balance:
+            statement = statement.sort_values(StandardColumns.DATE)
+            statement[StandardColumns.BALANCE] = statement[
+                StandardColumns.AMOUNT
+            ].cumsum()
 
-def standardize_dtypes(
-    df: pd.DataFrame,
-    use_decimal: bool = False,
-) -> pd.DataFrame:
-    """
-    Standardize DataFrame column types and index by date.
+        return statement
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input DataFrame
-    use_decimal : bool, default False
-        If True, convert amount columns to Decimal instead of float
+    def _trim(self, statement: pd.DataFrame) -> pd.DataFrame:
+        """Drop unwanted columns and rename surviving ones."""
+        renaming: dict[str, StandardColumns] = {}
+        drop_columns = []
+        for current, map_to in zip(statement.columns, self.COLUMNS, strict=False):
+            if map_to is IGNORE_COLUMN:
+                drop_columns.append(current)
+                continue
+            renaming[current] = map_to
 
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with standardized dtypes.
-    """
-    df = df.copy()
-
-    date_column = StandardColumns.DATE
-    df[date_column] = pd.to_datetime(df[date_column], format="mixed", dayfirst=True)
-
-    time_column = StandardColumns.TIME
-    df[time_column] = pd.to_datetime(df[time_column], format="mixed").dt.strftime(
-        "%H:%M:%S"
-    )
-
-    amount_columns = [StandardColumns.AMOUNT, StandardColumns.BALANCE]
-
-    for col in amount_columns:
-        if col in df.columns:
-            if df[col].dtype == "object":
-                df[col] = df[col].astype(str).str.replace("£", "", regex=False)
-                df[col] = df[col].str.replace("$", "", regex=False)
-                df[col] = df[col].str.replace(",", "", regex=False)
-
-            if use_decimal:
-                df[col] = df[col].apply(
-                    lambda x: Decimal(str(x)) if pd.notna(x) else None
-                )
-            else:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    for col in df.select_dtypes(include=["object"]).columns:
-        df[col] = df[col].map(unescape, na_action="ignore").astype("string")
-
-    return df
+        return statement.drop(columns=drop_columns).rename(columns=renaming)

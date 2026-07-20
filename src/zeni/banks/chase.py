@@ -4,44 +4,34 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 import pandas as pd
 
 from zeni.banks.bank import Bank
-from zeni.basic_types import Incoming, Internal, Outgoing, Payment, StandardColumns
+from zeni.basic_types import Internal, Outgoing, StandardColumns
 from zeni.utils import filter_dataframe
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class Chase(Bank):
     """Defines parsing rules for Chase bank statements."""
 
-    @staticmethod
-    def load(filepath: Path | str) -> pd.DataFrame:
-        return pd.read_csv(filepath, skiprows=1)
+    COLUMNS = (
+        StandardColumns.DATE,
+        StandardColumns.TIME,
+        StandardColumns.CATEGORY,
+        StandardColumns.NAME,
+        StandardColumns.AMOUNT,
+        StandardColumns.CURRENCY,
+        StandardColumns.BALANCE,
+    )
 
     @classmethod
-    def column_map(cls) -> dict[str, StandardColumns]:
-        return {
-            "Transaction Description": StandardColumns.NAME,
-            "Time": StandardColumns.TIME,
-            "Amount": StandardColumns.AMOUNT,
-            "Date": StandardColumns.DATE,
-            "Transaction Type": StandardColumns.CATEGORY,
-            "Currency": StandardColumns.CURRENCY,
-            "Balance": StandardColumns.BALANCE,
-        }
-
-    @classmethod
-    def category_map(cls) -> dict[str, Payment]:
-        return {
-            "Purchase": Outgoing.LEISURE,
-            "Transfer": Internal.TRANSFER,
-            "Payment": Incoming.INCOME,
-            "Refund": Incoming.REFUND,
-            "Direct Debit": Outgoing.BILL,
-        }
+    def load(cls, filepath: Path | str) -> pd.DataFrame:
+        """Chase load function needs overwritten to pass in the
+        header=1 argument."""
+        return pd.read_csv(filepath, header=1)
 
 
 @Chase.post_process()
