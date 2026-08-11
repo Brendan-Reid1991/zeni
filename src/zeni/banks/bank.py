@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, ClassVar, TypeAlias
 
 import pandas as pd
 
-from zeni.basic_types import COLUMN_DEFAULTS, StandardColumns
+from zeni.basic_types import COLUMN_DEFAULTS, TransactionColumns
 from zeni.utils.fuzzy_matcher import NoMatchingStringsError, fuzzy_string_matcher
 
 from .utils import IGNORE_COLUMN, standardize_dtypes
@@ -125,11 +125,11 @@ class Bank(ABC):
             )
             statement = fn(statement)
 
-        has_balance = StandardColumns.BALANCE in statement.columns
+        has_balance = TransactionColumns.BALANCE in statement.columns
 
         missing_columns = [
             col
-            for col, _ in StandardColumns._value2member_map_.items()
+            for col, _ in TransactionColumns._value2member_map_.items()
             if col not in statement.columns
         ]
         for missing in missing_columns:
@@ -138,19 +138,19 @@ class Bank(ABC):
         logger.info(
             "Standardized %d transactions from %s", len(statement), type(self).__name__
         )
-        statement = standardize_dtypes(statement[list(map(str, StandardColumns))])
+        statement = standardize_dtypes(statement[list(map(str, TransactionColumns))])
 
         if not has_balance:
-            statement = statement.sort_values(StandardColumns.DATE)
-            statement[StandardColumns.BALANCE] = statement[
-                StandardColumns.AMOUNT
+            statement = statement.sort_values(TransactionColumns.DATE)
+            statement[TransactionColumns.BALANCE] = statement[
+                TransactionColumns.AMOUNT
             ].cumsum()
 
         return statement
 
     def _trim(self, statement: pd.DataFrame) -> pd.DataFrame:
         """Drop unwanted columns and rename surviving ones."""
-        renaming: dict[str, StandardColumns] = {}
+        renaming: dict[str, TransactionColumns] = {}
         drop_columns = []
         for current, map_to in zip(statement.columns, self.COLUMNS, strict=False):
             if map_to is IGNORE_COLUMN:

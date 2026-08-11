@@ -6,7 +6,7 @@ from html import unescape
 
 import pandas as pd
 
-from zeni.basic_types import StandardColumns
+from zeni.basic_types import TransactionColumns
 
 IGNORE_COLUMN = object()
 """Filler to ignore a column in a statement."""
@@ -47,13 +47,13 @@ def standardize_dtypes(
     """
     df = df.copy()
 
-    date_column = StandardColumns.DATE
+    date_column = TransactionColumns.DATE
     df[date_column] = pd.to_datetime(df[date_column], format="mixed", dayfirst=False)
 
-    time_column = StandardColumns.TIME
+    time_column = TransactionColumns.TIME
     df[time_column] = df[time_column].apply(_normalize_time)
 
-    amount_columns = [StandardColumns.AMOUNT, StandardColumns.BALANCE]
+    amount_columns = [TransactionColumns.AMOUNT, TransactionColumns.BALANCE]
 
     for col in amount_columns:
         if col in df.columns:

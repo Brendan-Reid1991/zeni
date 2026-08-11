@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from zeni.banks.bank import Bank
-from zeni.basic_types import Internal, Outgoing, StandardColumns
+from zeni.basic_types import Internal, Outgoing, TransactionColumns
 from zeni.utils import filter_dataframe
 
 if TYPE_CHECKING:
@@ -18,13 +18,13 @@ class Chase(Bank):
     """Defines parsing rules for Chase bank statements."""
 
     COLUMNS = (
-        StandardColumns.DATE,
-        StandardColumns.TIME,
-        StandardColumns.CATEGORY,
-        StandardColumns.NAME,
-        StandardColumns.AMOUNT,
-        StandardColumns.CURRENCY,
-        StandardColumns.BALANCE,
+        TransactionColumns.DATE,
+        TransactionColumns.TIME,
+        TransactionColumns.CATEGORY,
+        TransactionColumns.NAME,
+        TransactionColumns.AMOUNT,
+        TransactionColumns.CURRENCY,
+        TransactionColumns.BALANCE,
     )
 
     @classmethod
@@ -39,7 +39,7 @@ def round_ups(chase_statement: pd.DataFrame) -> pd.DataFrame:
     """Chase defines very few payment categories, this step moves round ups
     to an internal ROUNDUP category."""
     round_up_index = filter_dataframe(chase_statement, name="^round up").index
-    chase_statement.loc[round_up_index, StandardColumns.CATEGORY] = Internal.ROUNDUP
+    chase_statement.loc[round_up_index, TransactionColumns.CATEGORY] = Internal.ROUNDUP
     return chase_statement
 
 
@@ -49,7 +49,7 @@ def classify_payments(chase_statement: pd.DataFrame) -> pd.DataFrame:
     all negative bank payments and maps to a BILL."""
     payments: pd.DataFrame = filter_dataframe(chase_statement, category="^income")
     outgoing_index = filter_dataframe(payments, amount=lambda x: x < 0).index
-    chase_statement.loc[outgoing_index, StandardColumns.CATEGORY] = Outgoing.BILL
+    chase_statement.loc[outgoing_index, TransactionColumns.CATEGORY] = Outgoing.BILL
     return chase_statement
 
 
@@ -58,9 +58,9 @@ def withdrawals(chase_statement: pd.DataFrame) -> pd.DataFrame:
     """Cash withdrawals can appear in multiple different formats, this unifies them."""
     payments: pd.DataFrame = filter_dataframe(chase_statement, category="^withdrawal")
     indices = payments.index
-    chase_statement.loc[indices, StandardColumns.CATEGORY] = Outgoing.CASH_WITHDRAWAL
-    chase_statement.loc[indices, StandardColumns.NOTES] = payments[
-        StandardColumns.CATEGORY
+    chase_statement.loc[indices, TransactionColumns.CATEGORY] = Outgoing.CASH_WITHDRAWAL
+    chase_statement.loc[indices, TransactionColumns.NOTES] = payments[
+        TransactionColumns.CATEGORY
     ]
     return chase_statement
 
@@ -72,10 +72,10 @@ def foreign_purchases(chase_statement: pd.DataFrame) -> pd.DataFrame:
     This means each foreign purchase is essentially it's own category. This
     post processing steps moves the FX information into the Notes field.
     """
-    fx_info = chase_statement[StandardColumns.CATEGORY].str.extract(
+    fx_info = chase_statement[TransactionColumns.CATEGORY].str.extract(
         r"Purchase \| (.+)", expand=False
     )
     fx_mask = fx_info.notna()
-    chase_statement.loc[fx_mask, StandardColumns.NOTES] = fx_info[fx_mask]
-    chase_statement.loc[fx_mask, StandardColumns.CATEGORY] = Outgoing.LEISURE
+    chase_statement.loc[fx_mask, TransactionColumns.NOTES] = fx_info[fx_mask]
+    chase_statement.loc[fx_mask, TransactionColumns.CATEGORY] = Outgoing.LEISURE
     return chase_statement

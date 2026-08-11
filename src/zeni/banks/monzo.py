@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
 from zeni.banks.bank import IGNORE_COLUMN, Bank
-from zeni.basic_types import Internal, Outgoing, StandardColumns
+from zeni.basic_types import Internal, Outgoing, TransactionColumns
 from zeni.utils import filter_dataframe
 
 
@@ -17,17 +17,17 @@ class Monzo(Bank):
 
     COLUMNS = (
         IGNORE_COLUMN,
-        StandardColumns.DATE,
-        StandardColumns.TIME,
+        TransactionColumns.DATE,
+        TransactionColumns.TIME,
         IGNORE_COLUMN,
-        StandardColumns.NAME,
+        TransactionColumns.NAME,
         IGNORE_COLUMN,
-        StandardColumns.CATEGORY,
-        StandardColumns.AMOUNT,
-        StandardColumns.CURRENCY,
+        TransactionColumns.CATEGORY,
+        TransactionColumns.AMOUNT,
+        TransactionColumns.CURRENCY,
         IGNORE_COLUMN,
         IGNORE_COLUMN,
-        StandardColumns.NOTES,
+        TransactionColumns.NOTES,
         IGNORE_COLUMN,
         IGNORE_COLUMN,
         IGNORE_COLUMN,
@@ -42,7 +42,7 @@ def flex_payments(statement: pd.DataFrame) -> pd.DataFrame:
     """Flex payments in Monzo show up with a NaN name, this step
     renames those columns."""
     flex_rows = filter_dataframe(statement, notes="^flex").index
-    statement.loc[flex_rows, StandardColumns.NAME] = "Flex payment"
+    statement.loc[flex_rows, TransactionColumns.NAME] = "Flex payment"
     return statement
 
 
@@ -51,8 +51,8 @@ def overdraft_fees(statement: pd.DataFrame) -> pd.DataFrame:
     """Overdraft fees are registered as an UNCATEGORISED payment, this step
     appropriately changes the category to FEE."""
     overdraft_rows = filter_dataframe(statement, notes="^overdraft").index
-    statement.loc[overdraft_rows, StandardColumns.NAME] = "Overdraft fees"
-    statement.loc[overdraft_rows, StandardColumns.CATEGORY] = Outgoing.FEE
+    statement.loc[overdraft_rows, TransactionColumns.NAME] = "Overdraft fees"
+    statement.loc[overdraft_rows, TransactionColumns.CATEGORY] = Outgoing.FEE
     return statement
 
 
@@ -60,5 +60,5 @@ def overdraft_fees(statement: pd.DataFrame) -> pd.DataFrame:
 def rounds_ups(statement: pd.DataFrame) -> pd.DataFrame:
     """Post processing Monzo roundups."""
     roundups = filter_dataframe(statement, name="^round ups").index
-    statement.loc[roundups, StandardColumns.CATEGORY] = Internal.ROUNDUP
+    statement.loc[roundups, TransactionColumns.CATEGORY] = Internal.ROUNDUP
     return statement

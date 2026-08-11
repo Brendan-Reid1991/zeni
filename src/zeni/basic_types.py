@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from enum import StrEnum, auto
-from typing import NamedTuple, TypeAlias
+from typing import TypeAlias
 
 
 class AccountType(StrEnum):
@@ -15,14 +15,8 @@ class AccountType(StrEnum):
     CREDIT = auto()
 
 
-class Account(NamedTuple):
-    """Data structure for storing information about an account."""
-
-    bank: str
-    type: AccountType
-
-
-class Payment(StrEnum): ...
+class Payment(StrEnum):
+    """Base enum for all payment types."""
 
 
 class Outgoing(Payment):
@@ -61,7 +55,7 @@ class Internal(Payment):
     ROUNDUP = auto()
 
 
-class StandardColumns(StrEnum):
+class TransactionColumns(StrEnum):
     """The standard columns to be used when parsing bank statements into CSV.
 
     Ordering in this class is implicitly the "preferred" ordering.
@@ -81,23 +75,13 @@ class StandardColumns(StrEnum):
 COLUMN_DTYPES: TypeAlias = str | date | time | Decimal | float | int
 _NOW = datetime.now(tz=UTC)
 
-COLUMN_DEFAULTS: dict[StandardColumns, COLUMN_DTYPES] = {
-    StandardColumns.DATE: _NOW.date(),
-    StandardColumns.TIME: _NOW.time(),
-    StandardColumns.NAME: "None",
-    StandardColumns.CATEGORY: "None",
-    StandardColumns.AMOUNT: 0,
-    StandardColumns.CURRENCY: "GBP",
-    StandardColumns.NOTES: "",
-    StandardColumns.BALANCE: 0,
+COLUMN_DEFAULTS: dict[TransactionColumns, COLUMN_DTYPES] = {
+    TransactionColumns.DATE: _NOW.date(),
+    TransactionColumns.TIME: _NOW.time(),
+    TransactionColumns.NAME: "None",
+    TransactionColumns.CATEGORY: "None",
+    TransactionColumns.AMOUNT: 0,
+    TransactionColumns.CURRENCY: "GBP",
+    TransactionColumns.NOTES: "",
+    TransactionColumns.BALANCE: 0,
 }
-
-
-TransactionFields = StrEnum(
-    "TransactionFields",
-    ["ID", "BANK", "ACCOUNT"]
-    + [entry.name for entry in StandardColumns]
-    + ["CREATED_AT", "UPDATED_AT"],
-)
-"""Enum for defining the fields used in database entries. Same as StandardColumns
-with other metadata fields."""
