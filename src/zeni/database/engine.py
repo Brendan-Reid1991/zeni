@@ -5,7 +5,7 @@ from pathlib import Path
 from sqlalchemy import Engine as SQLEngine
 from sqlalchemy import create_engine
 
-from zeni.database.models import Base
+from zeni.database.models import ZeniBase
 from zeni.database.utils import DEFAULT_PATHWAY, sql_directory
 
 
@@ -32,7 +32,7 @@ class Engine:
 
         self._db = sql_directory(self.pathway, self.name)
         self._sql: SQLEngine = create_engine(self._db, echo=self.echoes)
-        Base.metadata.create_all(self._sql)
+        ZeniBase.metadata.create_all(self._sql)
 
     def close_connections(self) -> None:
         """Close all connections."""
