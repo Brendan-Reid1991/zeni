@@ -5,6 +5,8 @@ from sqlalchemy import Column, ForeignKey, String, Table
 from .base_model import ZeniBase
 
 transaction_imports = Table(
+    "transaction_imports",
+    ZeniBase.metadata,
     Column(
         "transaction_id",
         String(36),
@@ -17,6 +19,4 @@ transaction_imports = Table(
         ForeignKey("imported_statements.id"),
         primary_key=True,
     ),
-    name="transaction_imports",
-    metadata=ZeniBase.metadata,
 )
