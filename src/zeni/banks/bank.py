@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, ClassVar, TypeAlias
 import pandas as pd
 
 from zeni.basic_types import COLUMN_DEFAULTS, TransactionColumns
-from zeni.utils.fuzzy_matcher import NoMatchingStringsError, fuzzy_string_matcher
+from zeni.utils.input_resolution import NoMatchingStringsError, resolve
 
 from .utils import IGNORE_COLUMN, standardize_dtypes
 
@@ -36,7 +36,7 @@ def bank_directory(name: str) -> type[Bank]:
     """
     registered = tuple(BANK_REGISTRY.keys())
     try:
-        return BANK_REGISTRY[fuzzy_string_matcher(name, registered)]
+        return BANK_REGISTRY[resolve(name, registered)]
     except NoMatchingStringsError as exc:
         raise KeyError(
             f"Invalid bank name: '{name}'. Supported banks are: {registered}"

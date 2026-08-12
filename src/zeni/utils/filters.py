@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from numpy import typing as npt
 
-from zeni.utils.fuzzy_matcher import fuzzy_string_matcher
+from zeni.utils.input_resolution import resolve
 
 
 def map_column_name(
@@ -24,7 +24,7 @@ def map_column_name(
 
     @wraps(function)
     def inner(df: pd.DataFrame, column_name: str, settings: FilterT) -> pd.DataFrame:
-        best_match = fuzzy_string_matcher(column_name, tuple(df.columns))
+        best_match = resolve(column_name, tuple(df.columns))
         return function(df, best_match, settings)
 
     return inner

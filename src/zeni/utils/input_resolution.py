@@ -1,8 +1,8 @@
-"""A fuzzy matching function."""
+"""A collection of utilities to resolve user input errors."""
 
 import difflib
 import inspect
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from functools import lru_cache, wraps
 from typing import ParamSpec, TypeVar
 
@@ -11,7 +11,7 @@ class NoMatchingStringsError(Exception):
     def __init__(self, input_string: str, candidates: Sequence[str]):
         candidates_list = "\n\t- ".join(candidates)
         super().__init__(
-            f"No matches for '{input_string}' found in candidates:\n\t-"
+            f"No matches for '{input_string}' found in candidates:\n\t- "
             + candidates_list
         )
 
@@ -30,8 +30,9 @@ def normalize(candidate: str) -> str:
 
 
 @lru_cache
-def fuzzy_string_matcher(input_str: str, candidates: tuple[str, ...]) -> str:  # type: ignore[return]
-    """A cached fuzzy matching function.
+def resolve(input_str: str, candidates: tuple[str, ...]) -> str:  # type: ignore[return]
+    """Resolving user input (`input_str`) against a list of `candidates` and return the
+    best match.
 
     This function first normalizes the input and list of candidates, and performs a
     series of checks.
@@ -139,10 +140,25 @@ def coerce_kwargs(valid_fields: tuple[str, ...]):
         @wraps(func)
         def inner(*args, **kwargs):
             new_kwargs = {
-                k if k in explicit_params else fuzzy_string_matcher(k, valid_fields): v
+                k if k in explicit_params else resolve(k, valid_fields): v
                 for k, v in kwargs.items()
             }
             return func(*args, **new_kwargs)
+
+        return inner
+
+    return decorator
+
+
+def assert_membership(field: str, candidates: Iterable[str]):
+    """Decorator to ensure that the argument provided to `field` is a member
+    of `candidates`."""
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        @wraps(func)
+        def inner(*args, **kwargs):
+            kwargs |= {field: resolve(kwargs[field], tuple(candidates))}
+            return func(*args, **kwargs)
 
         return inner
 
