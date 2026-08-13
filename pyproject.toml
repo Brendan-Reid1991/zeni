@@ -3,7 +3,7 @@ name = "zeni"
 version = "0.1.0"
 description = "Multi-bank budgeting: ingest statements, auto-classify, and review on a timeline."
 readme = "README.md"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.12,<3.14"
 authors = [{ name = "Brendan Reid" }]
 license = { text = "MIT" }
 dependencies = [
@@ -25,7 +25,7 @@ dev = [
 
 [tool.ruff]
 line-length = 89
-target-version = "py311"
+target-version = "py312"
 fix = true
 
 [tool.ruff.lint]
@@ -37,7 +37,7 @@ exclude=["tests/*"]
 addopts = "-q --disable-warnings"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 ignore_missing_imports = true
 strict = true
 
