@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from decimal import Decimal
 from functools import wraps
-from typing import TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -30,12 +29,10 @@ def map_column_name(
     return inner
 
 
-Entry: TypeAlias = Decimal | str | float
+type Entry = Decimal | str | float
 """Generic dataframe entry."""
 
-BooleanArray: TypeAlias = (
-    pd.Series | npt.NDArray[np.bool] | list[bool] | tuple[bool, ...]
-)
+type BooleanArray = pd.Series | npt.NDArray[np.bool] | list[bool] | tuple[bool, ...]
 """An array of booleans."""
 
 
@@ -193,7 +190,7 @@ class DataframeFilters:
         return df[mask]
 
 
-FilterT: TypeAlias = (
+type FilterT = (
     list[Entry] | tuple[Entry, Entry] | Entry | Callable[[pd.Series], BooleanArray]
 )
 """Possible dataframe filters."""

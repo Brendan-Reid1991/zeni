@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from enum import StrEnum, auto
-from typing import TypeAlias
 
 
 class AccountType(StrEnum):
@@ -72,7 +71,7 @@ class TransactionColumns(StrEnum):
     NOTES = auto()
 
 
-COLUMN_DTYPES: TypeAlias = str | date | time | Decimal | float | int
+type COLUMN_DTYPES = str | date | time | Decimal | float | int
 _NOW = datetime.now(tz=UTC)
 
 COLUMN_DEFAULTS: dict[TransactionColumns, COLUMN_DTYPES] = {

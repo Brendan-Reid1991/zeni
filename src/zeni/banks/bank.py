@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from abc import ABC
 from collections.abc import Callable
-from typing import TYPE_CHECKING, ClassVar, TypeAlias
+from typing import TYPE_CHECKING, ClassVar
 
 import pandas as pd
 
@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DataframeProcessor: TypeAlias = Callable[[pd.DataFrame], pd.DataFrame]
-ProcessingStep: TypeAlias = list[tuple[int, DataframeProcessor]]
+type DataframeProcessor = Callable[[pd.DataFrame], pd.DataFrame]
+type ProcessingStep = list[tuple[int, DataframeProcessor]]
 
 
 BANK_REGISTRY: dict[str, type[Bank]] = {}
