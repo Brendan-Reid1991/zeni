@@ -1,5 +1,5 @@
 """Database module for storing and managing transactions."""
 
-from zeni.database.manager import DatabaseManager
+from zeni.database.manager import Manager
 
-__all__ = ["DatabaseManager"]
+__all__ = ["Manager"]
