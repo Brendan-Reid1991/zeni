@@ -19,11 +19,12 @@ SHELL := /bin/bash
 PY ?= python
 UV ?= uv
 RUFF ?= ruff
+MYPY ?= mypy
 
 CODE := src
 TESTS := tests
 
-.PHONY: install install-all lint format fmt-check test ci lock clean help
+.PHONY: install install-all lint format fmt-check test ci lock clean typing help
 
 # -------- Tasks --------
 
@@ -47,8 +48,8 @@ format: ## Auto-format code
 fmt-check: ## Check formatting without writing
 	$(UV) run $(RUFF) format --check $(CODE)
 
-bank: ## run the app
-	$(UV) run $(PY) -m zeni.app
+typing: ## Run the typing checks
+	$(UV) run $(MYPY) $(CODE)
 
 test: ## Run test suite
 	$(UV) run pytest --cov=src --cov-fail-under=95 --cov-report term-missing --disable-warnings
