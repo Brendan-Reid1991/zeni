@@ -1,7 +1,18 @@
 from .accounts import Account
 from .base_model import ZeniBase
-from .imported_statements import ImportedStatements
+from .imported_statements import ImportedStatement
 from .rules import Rule
 from .transactions import Transaction
 
-__all__ = ["Account", "ImportedStatements", "Rule", "Transaction", "ZeniBase"]
+type Model = Account | ImportedStatement | Rule | Transaction
+type ModelT = type[Model]
+
+__all__ = [
+    "Account",
+    "ImportedStatement",
+    "Model",
+    "ModelT",
+    "Rule",
+    "Transaction",
+    "ZeniBase",
+]
