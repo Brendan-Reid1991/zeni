@@ -19,7 +19,7 @@ def _normalize_time(val: object) -> str | None:
         case _ if pd.isna(val):
             return None
         case str():
-            return pd.to_datetime(val, format="mixed").strftime("%H:%M:%S")
+            return str(pd.to_datetime(val, format="mixed").strftime("%H:%M:%S"))
         case _:
             raise TypeError(
                 f"Cannot normalize time value of type {type(val).__name__!r}: {val!r}"
