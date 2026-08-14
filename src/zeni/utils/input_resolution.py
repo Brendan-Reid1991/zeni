@@ -161,7 +161,7 @@ def coerce_kwargs(
     return decorator
 
 
-def assert_membership(
+def coerce_to(
     field: str, candidates: CandidateSource
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator to ensure that the argument provided to `field` is a member

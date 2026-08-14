@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, ClassVar
 import pandas as pd
 
 from zeni.basic_types import COLUMN_DEFAULTS, TransactionColumns
-from zeni.utils.input_resolution import assert_membership
+from zeni.utils.input_resolution import coerce_to
 
 from .utils import IGNORE_COLUMN, standardize_dtypes
 
@@ -29,7 +29,7 @@ BANK_REGISTRY: dict[str, type[Bank]] = {}
 must be imported into the zeni/bank/__init__.py"""
 
 
-@assert_membership("name", BANK_REGISTRY)
+@coerce_to("name", BANK_REGISTRY)
 def bank_directory(name: str) -> type[Bank]:
     """Return the Bank class for the input bank name."""
     return BANK_REGISTRY[name]
