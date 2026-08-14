@@ -11,23 +11,17 @@ import sqlalchemy.sql.sqltypes as sqlt
 from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .association_tables import transaction_imports
 from .base_model import ZeniBase
 
 if TYPE_CHECKING:
     from .accounts import Account
-    from .imported_statements import ImportedStatements
+    from .imported_statements import ImportedStatement
 
 
 class Transaction(ZeniBase):
     """Represents a single transaction."""
 
     __tablename__ = "transactions"
-
-    # Foreign Keys
-    account_id: Mapped[str] = mapped_column(
-        sqlt.String(36), ForeignKey("accounts.id"), nullable=False, index=True
-    )
 
     # Columns
     date: Mapped[datetime] = mapped_column(sqlt.DateTime, nullable=False, index=True)
@@ -50,17 +44,31 @@ class Transaction(ZeniBase):
         onupdate=lambda: datetime.now(tz=UTC),
     )
 
-    # Relationships
-    account: Mapped[Account] = relationship(back_populates="transactions")
+    # Foreign Keys
+    account_name: Mapped[str] = mapped_column(
+        sqlt.String(100), ForeignKey("accounts.name"), nullable=False, index=True
+    )
+    imported_from: Mapped[str | None] = mapped_column(
+        sqlt.String(36),
+        ForeignKey("imported_statements.id"),
+        nullable=True,
+        index=True,
+        default="Manual",
+    )
 
-    import_links: Mapped[list[ImportedStatements]] = relationship(
-        secondary=transaction_imports, back_populates="transactions"
+    # Relationships
+    account: Mapped[Account] = relationship(
+        back_populates="transactions", foreign_keys=[account_name]
+    )
+
+    imported_statement: Mapped[ImportedStatement | None] = relationship(
+        back_populates="transactions"
     )
 
     # Constraints
     __table_args__ = (
         UniqueConstraint(
-            "account_id",
+            "account_name",
             "date",
             "name",
             "balance",
@@ -70,16 +78,17 @@ class Transaction(ZeniBase):
 
     def __repr__(self) -> str:
         return (
-            f"<Transaction(id={self.id}, account_id={self.account_id}, "
+            f"<Transaction(id={self.id}, account={self.account_name}, "
             f"date={self.date.date()}, name={self.name!r}, amount={self.amount})>"
         )
 
     @classmethod
-    def from_standardized(cls, account_id: str, data: pd.Series) -> Transaction:
+    def from_standardized(cls, account: str, data: pd.Series) -> Transaction:
+        """Generate a Transaction from a row of a standardized statement."""
         name = "Unknown" if pd.isna(_name := data["name"]) else str(_name)
         category = "UNCATEGORISED" if pd.isna(_cat := data["category"]) else str(_cat)
         return Transaction(
-            account_id=account_id,
+            account_name=account,
             date=data["date"],
             time=data["time"],
             name=name,
