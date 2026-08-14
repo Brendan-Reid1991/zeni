@@ -2,10 +2,22 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
-from enum import StrEnum, auto
+from enum import EnumMeta, StrEnum, auto
 
 
-class AccountType(StrEnum):
+class _ZeniEnum(EnumMeta):
+    @property
+    def values(cls) -> tuple[str, ...]:
+        """Get the values of the enum as a plain tuple."""
+        return tuple(cls._value2member_map_)
+
+    @property
+    def keys(cls) -> tuple[str, ...]:
+        """Get the keys of the enum as a pain tuple."""
+        return tuple(cls._member_names_)
+
+
+class AccountType(StrEnum, metaclass=_ZeniEnum):
     """Basic enum to capture kinds of bank accounts."""
 
     CURRENT = auto()
@@ -14,7 +26,7 @@ class AccountType(StrEnum):
     CREDIT = auto()
 
 
-class Payment(StrEnum):
+class Payment(StrEnum, metaclass=_ZeniEnum):
     """Base enum for all payment types."""
 
 
@@ -54,7 +66,7 @@ class Internal(Payment):
     ROUNDUP = auto()
 
 
-class TransactionColumns(StrEnum):
+class TransactionColumns(StrEnum, metaclass=_ZeniEnum):
     """The standard columns to be used when parsing bank statements into CSV.
 
     Ordering in this class is implicitly the "preferred" ordering.
