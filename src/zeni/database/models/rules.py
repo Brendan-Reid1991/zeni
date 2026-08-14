@@ -1,27 +1,35 @@
+from __future__ import annotations
+
 from decimal import Decimal
 from enum import StrEnum, auto
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.sqltypes import JSON, Integer, String
+
+from zeni.utils.filters import Entry
 
 from .base_model import ZeniBase
 
 
 class Filter(StrEnum):
     EQ = auto()
+    APPROX_EQ = auto()
     IN = auto()
     BETWEEN = auto()
-    APPROX_EQ = auto()
     CONTAINS = auto()
     NOT_CONTAINS = auto()
+    GT = auto()
+    GTE = auto()
+    LT = auto()
+    LTE = auto()
 
 
 class Condition(TypedDict):
     apply_to: str
     operation: Filter
-    value: Any
+    value: Entry | list[Entry] | tuple[Entry, Entry]
 
 
 class Modifier(StrEnum):
@@ -60,25 +68,3 @@ class Rule(ZeniBase):
 
     def __repr__(self) -> str:
         return f"<Rule({self.name or self.id}, {self.conditions} -> {self.category})>"
-
-    # @validates("conditions_data")
-    # def validate_conditions_data(self, key, value):
-    #     return [self._normalize_condition(c) for c in value]
-
-    # @validates("actions_data")
-    # def validate_actions_data(self, key, value):
-    #     return [self._normalize_action(a) for a in value]
-
-    # def _normalize_condition(self, condition: ConditionDict) -> ConditionDict:
-    #     return {
-    #         "apply_to": str(condition["apply_to"]),
-    #         "operation": str(Filter(condition["operation"])),
-    #         "value": condition["value"],
-    #     }
-
-    # def _normalize_action(self, action: ActionDict) -> ActionDict:
-    #     return {
-    #         "apply_to": str(action["apply_to"]),
-    #         "operation": str(Modifier(action["operation"])),
-    #         "value": action["value"],
-    #     }
