@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, ClassVar
 import pandas as pd
 
 from zeni.basic_types import COLUMN_DEFAULTS, TransactionColumns
-from zeni.utils.input_resolution import NoMatchingStringsError, resolve
+from zeni.utils.input_resolution import assert_membership
 
 from .utils import IGNORE_COLUMN, standardize_dtypes
 
@@ -29,18 +29,10 @@ BANK_REGISTRY: dict[str, type[Bank]] = {}
 must be imported into the zeni/bank/__init__.py"""
 
 
+@assert_membership("name", BANK_REGISTRY)
 def bank_directory(name: str) -> type[Bank]:
-    """Return the Bank class for the input bank name.
-
-    Supports fuzzy string matching.
-    """
-    registered = tuple(BANK_REGISTRY.keys())
-    try:
-        return BANK_REGISTRY[resolve(name, registered)]
-    except NoMatchingStringsError as exc:
-        raise KeyError(
-            f"Invalid bank name: '{name}'. Supported banks are: {registered}"
-        ) from exc
+    """Return the Bank class for the input bank name."""
+    return BANK_REGISTRY[name]
 
 
 class Bank(ABC):
