@@ -53,7 +53,6 @@ class Transaction(ZeniBase):
         ForeignKey("imported_statements.id"),
         nullable=True,
         index=True,
-        default="Manual",
     )
 
     # Relationships
@@ -83,7 +82,9 @@ class Transaction(ZeniBase):
         )
 
     @classmethod
-    def from_standardized(cls, account: str, data: pd.Series) -> Transaction:
+    def from_standardized(
+        cls, account: str, data: pd.Series, imported_from: str | None = None
+    ) -> Transaction:
         """Generate a Transaction from a row of a standardized statement."""
         name = "Unknown" if pd.isna(_name := data["name"]) else str(_name)
         category = "UNCATEGORISED" if pd.isna(_cat := data["category"]) else str(_cat)
@@ -97,4 +98,5 @@ class Transaction(ZeniBase):
             currency=data["currency"],
             notes=data["notes"] if pd.notna(data.get("notes")) else None,
             balance=Decimal(str(data["balance"])).quantize(Decimal("0.01")),
+            imported_from=imported_from,
         )
