@@ -7,9 +7,12 @@ import pandas as pd
 from sqlalchemy import func, inspect, select
 from sqlalchemy.orm import Session
 
+from zeni.basic_types import TransactionColumns
 from zeni.database.models import Model
 from zeni.utils.filters import Entry
-from zeni.utils.input_resolution import coerce_kwargs
+from zeni.utils.input_resolution import coerce_datetime, coerce_kwargs
+
+from .utils import filter_query
 
 
 @lru_cache
@@ -68,7 +71,8 @@ class Repository[T: Model]:
         return self.session.scalars(select(getattr(self.table, field))).all()
 
     @coerce_kwargs(columns)
-    def _filter(self, **kwargs: Entry) -> Sequence[T]:
+    @coerce_datetime(TransactionColumns.DATE)
+    def filter(self, **filters: Entry) -> Sequence[T]:
         """Apply filters to the table and return those objects that satisfy the query.
 
         Returns
@@ -81,14 +85,11 @@ class Repository[T: Model]:
         ValueError
             If no entries satisfy the conditions.
         """
-        statement = select(self.table)
-        for field, value in kwargs.items():
-            statement = statement.where(getattr(self.table, field) == value)
-
+        statement = filter_query(select(self.table), self.table, **filters)
         if entries := self.session.scalars(statement).all():
             return entries
 
-        _as_list = "\n\t- ".join(f"{key} = {value}" for key, value in kwargs.items())
+        _as_list = "\n\t- ".join(f"{key} = {value}" for key, value in filters.items())
         raise ValueError(
             f"No '{self.table.__name__}' entries satisfy the following conditions:"
             "\n\t- " + _as_list
@@ -96,4 +97,4 @@ class Repository[T: Model]:
 
     def from_id(self, id: str) -> T:
         """Return the object with the given `id`."""
-        return self._filter(id=id)[0]
+        return self.filter(id=id)[0]
