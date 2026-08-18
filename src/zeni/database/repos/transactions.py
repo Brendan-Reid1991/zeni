@@ -7,7 +7,7 @@ from sqlalchemy import insert, inspect, select
 
 from zeni.banks.bank import BANK_REGISTRY
 from zeni.database.models import Transaction
-from zeni.utils.input_resolution import coerce_to, resolve
+from zeni.utils.input_resolution import coerce_to
 
 from .base_repo import Repository, values_of
 
@@ -18,7 +18,7 @@ class TransactionRepo(Repository[Transaction]):
 
     @coerce_to("name", values_of("account_name"))
     def from_account(self, name: str) -> Sequence[Transaction]:
-        return self._filter(account_name=name)
+        return self.filter(account_name=name)
 
     @coerce_to("bank", BANK_REGISTRY)
     def from_bank(self, bank: str) -> Sequence[Transaction]:
@@ -28,10 +28,7 @@ class TransactionRepo(Repository[Transaction]):
 
     def add_transactions(
         self, account: str, transactions: pd.DataFrame, imported_from: str | None = None
-    ):
-        if registered_accs := self.elements_of("account_name"):
-            account = resolve(account, tuple(registered_accs))
-
+    ) -> None:
         input_data = [
             Transaction.from_standardized(account, data, imported_from=imported_from)
             for _, data in transactions.iterrows()
