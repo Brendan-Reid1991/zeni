@@ -3,10 +3,14 @@
 import difflib
 import inspect
 from collections.abc import Callable, Iterable, Sequence
+from datetime import date, datetime, time
 from functools import lru_cache, wraps
 from typing import Any, ParamSpec, TypeVar
 
 from dateutil.parser import parse
+
+DATE_FMT = "%Y-%m-%d"
+TIME_FMT = "%H:%M:%S"
 
 
 class NoMatchingStringsError(Exception):
@@ -26,9 +30,35 @@ class TooManyMatchingStringsError(Exception):
         )
 
 
-def normalize(candidate: str) -> str:
+def normalize_string(candidate: str) -> str:
     """Normalize a string entry by putting to lowercase, removing spaces and commas."""
     return candidate.lower().replace(" ", "").replace(",", "")
+
+
+def normalize_time(val: str | time | datetime) -> str:
+    """Normalize an input to a consistent time format."""
+    match val:
+        case str():
+            return parse(val).strftime(TIME_FMT)
+        case time():
+            return val.strftime(TIME_FMT)
+        case datetime():
+            return val.time().strftime(TIME_FMT)
+        case _:
+            raise ValueError(f"Can't normalize this object into a timestamp: {val}")
+
+
+def normalize_date(val: str | date | datetime) -> date:
+    """Normalize an input to a consistent date format."""
+    match val:
+        case str():
+            return parse(val).date()
+        case datetime():
+            return val.date()
+        case date():
+            return val
+        case _:
+            raise ValueError(f"Can't normalize this object into a date: {val}")
 
 
 @lru_cache
@@ -53,13 +83,13 @@ def resolve(input_str: str, candidates: tuple[str, ...]) -> str:
 
     Depending on the output of these techniques, one of the following will occur:
         - Zero difflib matches; Zero substring matches
-            Raise a NoMatchingStringsErro
-        - 1 difflib match; X substring matches
+            Raise a NoMatchingStringsError
+        - 1 difflib match; N substring matches
             Return the difflib match. It does not matter how many substring matches were
-            found/
+            found.
         - 0 difflib matches; 1 substring match;
             Return the substring match.
-        - (>1 difflib matches; X substring match) | (0 difflib; >1 substring)
+        - (>1 difflib matches; N substring match) | (0 difflib; >1 substring)
             Raise a TooManyMatchingStringsError.
 
     Parameters
@@ -81,8 +111,10 @@ def resolve(input_str: str, candidates: tuple[str, ...]) -> str:
     TooManyMatchingStringsError
         If a single close match could not be identified.
     """
-    normalized_candidates = {normalize(candidate): candidate for candidate in candidates}
-    normalized_input = normalize(input_str)
+    normalized_candidates = {
+        normalize_string(candidate): candidate for candidate in candidates
+    }
+    normalized_input = normalize_string(input_str)
 
     if normalized_input in normalized_candidates:
         return normalized_candidates[normalized_input]
@@ -124,9 +156,12 @@ time with the bound instance (i.e. `self`) that produces them."""
 def _materialize(source: CandidateSource, args: tuple[Any, ...]) -> tuple[str, ...]:
     """Evaluate a candidate source at call time.
 
-    Callables receive the bound instance (``args[0]`` on methods); plain
-    iterables are simply frozen. Always returns a tuple, because `resolve`
-    is lru_cached and needs hashable candidates.
+    A CandidateSource can be an iterable of strings (candidates for resolution), and this
+    is cast to a tuple.
+
+    CandidateSource can also be a callable, and this format allows for inspection of
+    instance attributes at runtime. By defining a callable to accept the class in
+    question as its first argument (`self`) the candidates can be evaluated at runtime.
     """
     if callable(source):
         return tuple(source(args[0]))
@@ -200,8 +235,12 @@ def coerce_datetime(*args: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
         def _inner(*inner_args: P.args, **inner_kwargs: P.kwargs) -> R:
             bound = sig.bind(*inner_args, **inner_kwargs)
             bound.apply_defaults()
-            for field in args:
-                bound.arguments[field] = parse(bound.arguments[field], dayfirst=True)
+            # Restrict to the overlap of the input args and actual arguments
+            # on the bound object. This permits `coerce_datetime` to be applied to
+            # functions that accept optional date input, i.e. via **kwargs.
+            rewrite: set[str] = set(args) & bound.arguments.keys()
+            for field in rewrite:
+                bound.arguments[field] = parse(bound.arguments[field], yearfirst=True)
             return function(*bound.args, **bound.kwargs)
 
         return _inner

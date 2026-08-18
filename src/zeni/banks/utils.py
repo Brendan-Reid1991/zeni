@@ -1,34 +1,18 @@
 """Helper functions for bank parsing."""
 
-from datetime import time
-from decimal import Decimal
 from html import unescape
 
 import pandas as pd
 
 from zeni.basic_types import TransactionColumns
+from zeni.utils.input_resolution import normalize_date, normalize_time
 
 IGNORE_COLUMN = object()
 """Filler to ignore a column in a statement."""
 
 
-def _normalize_time(val: object) -> str | None:
-    match val:
-        case time():
-            return val.strftime("%H:%M:%S")
-        case _ if pd.isna(val):
-            return None
-        case str():
-            return str(pd.to_datetime(val, format="mixed").strftime("%H:%M:%S"))
-        case _:
-            raise TypeError(
-                f"Cannot normalize time value of type {type(val).__name__!r}: {val!r}"
-            )
-
-
 def standardize_dtypes(
     df: pd.DataFrame,
-    use_decimal: bool = False,
 ) -> pd.DataFrame:
     """
     Standardize DataFrame column types and index by date.
@@ -37,8 +21,6 @@ def standardize_dtypes(
     ----------
     df : pd.DataFrame
         Input DataFrame
-    use_decimal : bool, default False
-        If True, convert amount columns to Decimal instead of float
 
     Returns
     -------
@@ -48,10 +30,10 @@ def standardize_dtypes(
     df = df.copy()
 
     date_column = TransactionColumns.DATE
-    df[date_column] = pd.to_datetime(df[date_column], format="mixed", dayfirst=False)
+    df[date_column] = df[date_column].apply(normalize_date)
 
     time_column = TransactionColumns.TIME
-    df[time_column] = df[time_column].apply(_normalize_time)
+    df[time_column] = df[time_column].apply(normalize_time)
 
     amount_columns = [TransactionColumns.AMOUNT, TransactionColumns.BALANCE]
 
@@ -61,15 +43,11 @@ def standardize_dtypes(
                 df[col] = df[col].astype(str).str.replace("£", "", regex=False)
                 df[col] = df[col].str.replace("$", "", regex=False)
                 df[col] = df[col].str.replace(",", "", regex=False)
-
-            if use_decimal:
-                df[col] = df[col].apply(
-                    lambda x: Decimal(str(x)) if pd.notna(x) else None
-                )
-            else:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
     for col in df.select_dtypes(include=["object"]).columns:
+        if col == date_column or col == time_column:
+            continue
         df[col] = df[col].map(unescape, na_action="ignore").astype("string")
 
     return df
