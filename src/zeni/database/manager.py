@@ -1,16 +1,45 @@
-from collections.abc import Sequence
+from __future__ import annotations
+
+from collections.abc import Callable
+from datetime import datetime
+from functools import wraps
 from pathlib import Path
+from typing import Concatenate
 
 import pandas as pd
-from sqlalchemy import func, insert, inspect, select
-from sqlalchemy.orm import Session
 
 from zeni.banks import bank_directory
+from zeni.basic_types import AccountType
+from zeni.utils.input_resolution import coerce_datetime, coerce_to
 
 from .engine import Engineer
-from .models import Account, ImportedStatement, ModelT, Rule, Transaction
-from .models.rules import Action, Condition
-from .utils import DEFAULT_PATHWAY
+from .models import ImportedStatement
+from .utils import DEFAULT_PATHWAY, Workspace
+
+
+def transactional[**P, R](
+    function: Callable[Concatenate[Manager, Workspace, P], R],
+) -> Callable[Concatenate[Manager, P], R]:
+    """Decorator to automatically open an active workspace for `Manager` methods.
+
+    If there is already an active workspace (i.e. if a decorated function called another)
+    then that is used, else one is created and then torn down at the end of the SQL
+    Alchemy transaction.
+    """
+
+    @wraps(function)
+    def _inner(self: Manager, *args: P.args, **kwargs: P.kwargs) -> R:
+        if (active := self._active_workspace) is not None:
+            return function(self, active, *args, **kwargs)
+
+        with Workspace.open(self.engine) as ws:
+            self._active_workspace = ws
+            try:
+                return function(self, ws, *args, **kwargs)
+            finally:
+                self._active_workspace = None
+
+    return _inner
 
 
 class Manager:
@@ -20,44 +49,40 @@ class Manager:
         self.engineer = Engineer(db, pathway)
         self.engine = self.engineer.engine
 
-    def add_transaction(self, account: str, transaction_data: pd.Series) -> None:
-        """Add a transaction to the database.
+        self._active_workspace: Workspace | None = None
 
-        Duplicate transactions are silently ignored.
+    @property
+    @transactional
+    def accounts(self, workspace: Workspace) -> tuple[str, ...]:
+        return workspace.accounts.names
 
-        Parameters
-        ----------
-        account : str
-            Account name to link this transaction to.
-        transaction_data : pd.Series
-            Transaction data from a pandas Series.
-        """
-        with Session(self.engine) as session:
-            account = self._resolve_account(session, account)
-            self._insert_transactions(session, account, pd.DataFrame([transaction_data]))
-            session.commit()
+    @transactional
+    def add_account(
+        self,
+        workspace: Workspace,
+        name: str,
+        bank: str,
+        account_type: AccountType = AccountType.CURRENT,
+    ):
+        workspace.accounts.add_account(name, bank, account_type)
 
-    def add_statement(self, account: str, statement: pd.DataFrame) -> None:
-        """Add a bank statement to the database.
+    def _register_statement(
+        self, workspace: Workspace, account: str, source_file: str | Path
+    ) -> str:
+        imported = ImportedStatement(account=account, source_file=source_file)
+        workspace.session.add(imported)
+        workspace.session.flush()
+        return imported.id
 
-        Similar to a batched call of meth:`add_transaction` but more efficient.
-
-        Any overlap with existing transactions is ignored.
-
-        Parameters
-        ----------
-        account : str
-            Account name to link this statement to.
-        statement : pd.DataFrame
-            The statement dataframe.
-        """
-        with Session(self.engine) as session:
-            account = self._resolve_account(session, account)
-            self._insert_transactions(session, account, statement)
-            session.commit()
-
-    def import_statement(self, account: str, pathway: str | Path) -> None:
-        """Import a bank statement file, recording provenance for its transactions.
+    @transactional
+    @coerce_to("account", lambda self: self.accounts)
+    def import_statement(
+        self,
+        workspace: Workspace,
+        account: str,
+        pathway: str | Path,
+    ) -> None:
+        """Import a bank statement file.
 
         Parameters
         ----------
@@ -67,102 +92,23 @@ class Manager:
             Path to the statement file.
         """
         pathway = str(pathway)
-        with Session(self.engine) as session, session.begin():
-            account = self._resolve_account(session, account)
-            bank = session.scalar(select(Account.bank).where(Account.name == account))
-            standardized_statement = bank_directory(bank)(pathway).standardize()
+        acc = workspace.accounts.from_name(account)
+        bank = acc.bank
+        standardized_statement = bank_directory(bank)(pathway).standardize()
+        statement_id = self._register_statement(workspace, acc.name, pathway)
+        workspace.transactions.add_transactions(
+            acc.name, standardized_statement, imported_from=statement_id
+        )
 
-            imported = ImportedStatement(account=account, source_file=pathway)
-            session.add(imported)
-            session.flush()
+    @transactional
+    def retrieve_transactions(self, workspace: Workspace, **filters) -> pd.DataFrame:
+        return pd.DataFrame.from_records(
+            [tx.to_dict() for tx in workspace.transactions.filter(**filters)]
+        )
 
-            self._insert_transactions(
-                session, account, standardized_statement, imported_from=imported.id
-            )
-
-    def total_entries(self, table: type[ModelT]) -> int:
-        """Return the total entries of the given table.
-
-        Parameters
-        ----------
-        table : Model
-
-        Returns
-        -------
-        int
-            Total number of entries.
-        """
-        with Session(self.engine) as session:
-            return self._num_entries(session, table)
-
-    def add_rule(
-        self,
-        conditions: Sequence[Condition],
-        actions: Sequence[Action],
-        name: str | None = None,
-    ) -> None:
-        """Add a rule to the database.
-
-        Parameters
-        ----------
-        conditions : Sequence[Condition]
-            Sequence of conditions to apply.
-        actions : Sequence[Action]
-            Sequence of actions to apply to those entries that satisfy `conditions`.
-        name : str | None, optional
-            A name to give to this rule, by default None. If None, is replaced with
-            `Rule #x` where x is the number of current rules implemented, plus 1.
-        """
-        with Session(self.engine) as session:
-            if not name:
-                name = f"Rule #{self._num_entries(session, Rule) + 1}"
-            session.add(Rule(conditions=conditions, actions=actions, name=name))
-            session.commit()
-
-    def accounts(self) -> pd.DataFrame:
-        return self._get_table(Account)
-
-    def transactions(self) -> pd.DataFrame:
-        return self._get_table(Transaction)
-
-    def rules(self) -> pd.DataFrame:
-        return self._get_table(Rule)
-
-    def imports(self) -> pd.DataFrame:
-        return self._get_table(ImportedStatement)
-
-    def _insert_transactions(
-        self,
-        session: Session,
-        account: str,
-        statement: pd.DataFrame,
-        imported_from: str | None = None,
-    ) -> None:
-        transactions = [
-            Transaction.from_standardized(account, row, imported_from=imported_from)
-            for _, row in statement.iterrows()
-        ]
-        rows = [inspect(t).dict for t in transactions]
-        session.execute(insert(Transaction).prefix_with("OR IGNORE"), rows)
-
-    def _select_all(self, session: Session, table: type[ModelT], field: str):
-        return session.scalars(select(getattr(table, field))).all()
-
-    def _num_entries(self, session: Session, table: type[ModelT]) -> int:
-        """Private method to return the total number of entries in a specific table.
-
-        To be used during an open context window.
-
-        Parameters
-        ----------
-        session : Session
-            The active database session.
-        table : Model
-            Which table to count.
-
-        Returns
-        -------
-        int
-            Number of entries in the given table.
-        """
-        return session.scalar(select(func.count()).select_from(table))
+    @transactional
+    @coerce_datetime("from_date", "to_date")
+    def transactions_in_date_range(
+        self, workspace: Workspace, from_date: str | datetime, to_date: str | datetime
+    ) -> pd.DataFrame:
+        pass
