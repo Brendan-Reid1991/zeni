@@ -151,7 +151,7 @@ class DataframeFilters:
     def apply_predicate(
         df: pd.DataFrame,
         column: str,
-        predicate: Callable[[pd.Series], BooleanArray],
+        predicate: Callable[[Entry], bool],
     ) -> pd.DataFrame:
         """Apply a bespoke function to a dataframe.
 
@@ -177,17 +177,7 @@ class DataframeFilters:
             If the function does not return a boolean, or the returned array is the
             wrong length.
         """
-        col = df[column]
-        mask = predicate(col)
-        if isinstance(mask, pd.Series):
-            mask = mask.reindex(df.index, fill_value=False)
-        else:
-            mask = pd.Series(mask, index=col.index, dtype=bool)
-        if mask.dtype != bool or len(mask) != len(df):
-            raise ValueError(
-                "Predicate must produce a boolean mask aligned with the dataframe."
-            )
-        return df[mask]
+        return df[df[column].apply(predicate)]
 
 
 type FilterT = (
