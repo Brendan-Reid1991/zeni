@@ -1,109 +1,38 @@
-from collections.abc import Callable
-from decimal import Decimal
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
-from sqlalchemy import ColumnElement, Select
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.orm.attributes import QueryableAttribute
+from sqlalchemy import Engine
+from sqlalchemy.orm import Session
 
-from zeni.utils.filters import HAS, NOT, Entry
-
-type Predicate = Callable[[QueryableAttribute], ColumnElement[bool]]
-"""A callable that receives a column and returns a SQLAlchemy boolean expression."""
-
-type DatabaseFilterT = list[Entry] | tuple[Entry, Entry] | Entry | Predicate
-"""Possible database filters."""
+from .repos import AccountRepo, TransactionRepo
 
 
-class DatabaseFilters:
-    """A collection of common filtering functions for SQLAlchemy queries."""
+@dataclass
+class Workspace:
+    """Dataclass to handle SQL Alchemy sessions.
 
-    @staticmethod
-    def equals(column: QueryableAttribute, value: Entry) -> ColumnElement[bool]:
-        return column == value
+    Stores access to the session itself as well as repository classes that
+    require a session to be instanciated.
 
-    @staticmethod
-    def approx_equals(
-        column: QueryableAttribute, value: Decimal | float, tolerance: float = 0.01
-    ) -> ColumnElement[bool]:
-        v = float(value)
-        return column.between(v - tolerance, v + tolerance)
-
-    @staticmethod
-    def between(
-        column: QueryableAttribute, values: tuple[Entry, Entry]
-    ) -> ColumnElement[bool]:
-        return column.between(*values)
-
-    @staticmethod
-    def is_in(column: QueryableAttribute, values: list[Entry]) -> ColumnElement[bool]:
-        return column.in_(values)
-
-    @staticmethod
-    def has_substring(
-        column: QueryableAttribute, value: str, negate: bool = False
-    ) -> ColumnElement[bool]:
-        clause = column.ilike(f"%{value}%")
-        return ~clause if negate else clause
-
-    @staticmethod
-    def apply_predicate(
-        column: QueryableAttribute, predicate: Predicate
-    ) -> ColumnElement[bool]:
-        return predicate(column)
-
-
-def filter_query(
-    statement: Select, model: type[DeclarativeBase], **kwargs: DatabaseFilterT
-) -> Select:
-    """Apply filters to a SQLAlchemy select statement.
-
-    Mirrors the pattern-matching approach of filter_dataframe, but produces
-    chained .where() clauses instead of filtered DataFrames.
-
-    Parameters
-    ----------
-    stmt : Select
-        A SQLAlchemy select statement.
-    model : type[DeclarativeBase]
-        The ORM model to resolve column names against.
-
-    Returns
-    -------
-    Select
-        The filtered select statement.
+    Given a SQL Alchemy `Engine` object, this workspace should be used as a context
+    nanager:
+    ```python
+    with Workspace.open(Engine) as ws:
+       ws.session.scalar(...)
+       ...
+    ```
     """
-    for col_name, setting in kwargs.items():
-        column = getattr(model, col_name)
-        match setting:
-            case tuple():
-                statement = statement.where(DatabaseFilters.between(column, setting))
-            case list():
-                statement = statement.where(DatabaseFilters.is_in(column, setting))
-            case float() | Decimal():
-                statement = statement.where(
-                    DatabaseFilters.approx_equals(column, setting)
-                )
-            case int():
-                statement = statement.where(DatabaseFilters.equals(column, setting))
-            case str():
-                if setting == "":
-                    statement = statement.where(DatabaseFilters.equals(column, setting))
-                elif (head := setting[0]) in [HAS, NOT]:
-                    statement = statement.where(
-                        DatabaseFilters.has_substring(column, setting[1:], head == NOT)
-                    )
-                else:
-                    statement = statement.where(DatabaseFilters.equals(column, setting))
-            case _ if callable(setting):
-                statement = statement.where(
-                    DatabaseFilters.apply_predicate(column, setting)
-                )
-            case _:
-                raise ValueError(
-                    f"Invalid filter setting: {setting!r} has type {type(setting)}."
-                )
-    return statement
+
+    session: Session
+    accounts: AccountRepo
+    transactions: TransactionRepo
+
+    @classmethod
+    @contextmanager
+    def open(cls, engine: Engine):
+        with Session(engine) as session, session.begin():
+            yield cls(session, AccountRepo(session), TransactionRepo(session))
 
 
 def get_project_root() -> Path:
