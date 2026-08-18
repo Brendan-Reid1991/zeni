@@ -79,7 +79,50 @@ class TestDataFrameFilters:
         assert getattr(self.filter, method)(df, column, value).empty
 
 
-def test_filter_rows(): ...
+@pytest.mark.parametrize(
+    "column, setting, expected_df",
+    [
+        ["column_one", 1, df.iloc[[0]]],  # int
+        ["column_two", (2, 5), df.iloc[[0]]],  # tuple
+        ["column_three", ["abc", "def"], df.iloc[[0, 1]]],  # list
+        ["column_two", 5.0500001, df.iloc[[1]]],  # float
+        ["column_three", "def", df.iloc[[1]]],  # str - exact
+        ["column_three", "^def", df.iloc[[1, 2]]],  # str - has substring
+        ["column_three", "!def", df.iloc[[0]]],  # str - does not have substring
+        [
+            "column_three",
+            "",
+            df[df["column_three"].apply(lambda x: x == 0)],
+        ],  # str - empty
+        ["column_one", lambda x: x > 3, df.iloc[[1, 2]]],  # predicate #1
+        [
+            "column_three",
+            lambda x: ("a" in x) & ("e" not in x),
+            df.iloc[[0]],
+        ],  # predicate #2
+    ],
+)
+def test_filter_rows(column, setting, expected_df):
+    """Exercise each branch of the match/case"""
+    assert_frame_equal(filter_rows(df, column, setting), expected_df)
 
 
-def test_filter_dataframe(): ...
+def test_filter_rows_raises_on_invalid_predicate():
+    with pytest.raises(ValueError, match="Can't parse this function call"):
+        filter_rows(df, "column_one", max)
+
+
+def test_filter_rows_raises_on_unknown_setting():
+    with pytest.raises(ValueError, match="Invalid filter settings:"):
+        filter_rows(df, "column_one", df)
+
+
+def test_filter_dataframe():
+    assert_frame_equal(
+        filter_dataframe(df, column_one=lambda x: x > 1, column_three="def"),
+        df.iloc[[1]],
+    )
+
+
+def test_filter_dataframe_returns_empty_on_no_matches():
+    assert filter_dataframe(df, column_one=lambda x: x < 1).empty

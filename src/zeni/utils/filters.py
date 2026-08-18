@@ -163,19 +163,12 @@ class DataframeFilters:
         ----------
         df : pd.DataFrame
         column : str
-        predicate : Callable[ [pd.Series], BooleanArray]
-            A bespoke function to apply. Must act on a pd.Series and return a boolean
-            array.
+        predicate : Callable[ [Entry], bool]
+            A function to apply to each entry in the column.
 
         Returns
         -------
         pd.DataFrame
-
-        Raises
-        ------
-        ValueError
-            If the function does not return a boolean, or the returned array is the
-            wrong length.
         """
         return df[df[column].apply(predicate)]
 
@@ -237,13 +230,13 @@ def filter_rows(dataframe: pd.DataFrame, column: str, settings: FilterT) -> pd.D
         case _ if callable(settings):
             try:
                 return DataframeFilters.apply_predicate(dataframe, column, settings)
-            except ValueError as exc:
+            except TypeError as exc:
                 raise ValueError(
                     f"Can't parse this function call: {settings!r}"
                 ) from exc
         case _:
             raise ValueError(
-                f"Invalid filters settings: {settings!r} has type {type(settings)}."
+                f"Invalid filter settings: {settings!r} has type {type(settings)}."
             )
 
 
