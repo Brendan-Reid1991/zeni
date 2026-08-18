@@ -53,7 +53,7 @@ class AccountRepo(Repository[Account]):
         Account
             The relevant row in the table.
         """
-        return self._filter(name=name)[0]
+        return self.filter(name=name)[0]
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -80,7 +80,7 @@ class AccountRepo(Repository[Account]):
         tuple[str, ...]
             A tuple of account names registered with the input bank.
         """
-        return tuple(self._filter(bank=bank))
+        return tuple(self.filter(bank=bank))
 
     def total_outgoings_from(self, name: str) -> Decimal:
         """Return the total outgoings from the given account.
