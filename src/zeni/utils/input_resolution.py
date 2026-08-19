@@ -219,7 +219,7 @@ def coerce_to(
     return decorator
 
 
-def coerce_datetime(*args: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def coerce_date(*args: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """A decorator to coerce the input data to `args` into a consistent datetime format.
 
     `args` should be field names on the decorated function. The input to those fields
@@ -240,7 +240,7 @@ def coerce_datetime(*args: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
             # functions that accept optional date input, i.e. via **kwargs.
             rewrite: set[str] = set(args) & bound.arguments.keys()
             for field in rewrite:
-                bound.arguments[field] = parse(bound.arguments[field], yearfirst=True)
+                bound.arguments[field] = normalize_date(bound.arguments[field])
             return function(*bound.args, **bound.kwargs)
 
         return _inner
