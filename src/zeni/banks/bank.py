@@ -135,6 +135,7 @@ class Bank:
         return statement
 
     def _run_pre_processing(self, statement: pd.DataFrame) -> pd.DataFrame:
+        """Run, and log, the pre processing steps."""
         for _, fn in sorted(self.pre_processing_steps, key=lambda x: x[0]):
             logger.debug(
                 "Running %s pre-processing: %s", type(self).__name__, fn.__name__
@@ -143,6 +144,7 @@ class Bank:
         return statement
 
     def _run_post_processing(self, statement: pd.DataFrame) -> pd.DataFrame:
+        """Run, and log, the post processing steps."""
         for _, fn in sorted(self.post_processing_steps, key=lambda x: x[0]):
             logger.debug(
                 "Running %s post-processing: %s", type(self).__name__, fn.__name__
@@ -156,14 +158,18 @@ class Bank:
         drop_columns = []
         for current, map_to in zip(statement.columns, self.COLUMNS, strict=False):
             if map_to in [IGNORE_COLUMN, TIMELIKE]:
+                logger.debug(f"Dropped column {current} - marked as {map_to}")
                 drop_columns.append(current)
                 continue
             renaming[current] = map_to
-
         return statement.drop(columns=drop_columns).rename(columns=renaming)
 
     def _normalize_datetime(self, statement: pd.DataFrame) -> pd.DataFrame:
-        """Merge the time column into the date column."""
+        """If the dataframe has both a TIME and DATE column, merge the former into
+        the latter.
+
+        If it does not, append midnight onto the dates.
+        """
         date_column = statement.columns[self.COLUMNS.index(TransactionColumns.DATE)]
         if TIMELIKE in self.COLUMNS:
             time_column = statement.columns[self.COLUMNS.index(TIMELIKE)]
