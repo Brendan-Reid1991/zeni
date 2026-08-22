@@ -36,10 +36,10 @@ install-all: ## Sync all dependency groups
 	$(UV) sync --all-groups
 
 lint: ## Lint (no writes)
-	$(UV) run $(RUFF) check $(CODE)
+	$(UV) run $(RUFF) check $(CODE) $(TESTS)
 
 lint-fix: ## Lint and fix
-	$(UV) run $(RUFF) check $(CODE) --fix
+	$(UV) run $(RUFF) check $(CODE) $(TESTS) --fix
 
 format: ## Auto-format code
 	$(UV) run $(RUFF) format $(CODE)

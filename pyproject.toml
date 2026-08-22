@@ -31,7 +31,9 @@ fix = true
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N", "S", "TCH", "RUF"]
 ignore = ["TC001", "TC002", "TC003"]
-exclude=["tests/*"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
 
 [tool.pytest.ini_options]
 addopts = "-q --disable-warnings"
