@@ -3,7 +3,7 @@
 import difflib
 import inspect
 from collections.abc import Callable, Iterable, Sequence
-from datetime import datetime
+from datetime import date, datetime
 from functools import lru_cache, wraps
 from typing import Any, ParamSpec, TypeVar
 
@@ -39,10 +39,12 @@ def normalize_date(val: str | datetime) -> str:
     match val:
         case str():
             return parse(val).strftime(DATE_FMT)
-        case datetime():
+        case datetime() | date():
             return val.strftime(DATE_FMT)
         case _:
-            raise ValueError(f"Can't normalize this object into a date: {val}")
+            raise ValueError(
+                f"Can't normalize this object (type {type(val)}) into a date: {val}"
+            )
 
 
 @lru_cache

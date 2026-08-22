@@ -2,10 +2,8 @@ import pytest
 from datetime import date, datetime, time
 from zeni.utils.input_resolution import (
     DATE_FMT,
-    TIME_FMT,
     TooManyMatchingStringsError,
     NoMatchingStringsError,
-    normalize_time,
     normalize_string,
     normalize_date,
     resolve,
@@ -16,11 +14,7 @@ from zeni.utils.input_resolution import (
 
 
 def test_date_fmt():
-    assert DATE_FMT == "%Y-%m-%d"
-
-
-def test_time_fmt():
-    assert TIME_FMT == "%H:%M:%S"
+    assert DATE_FMT == "%Y-%m-%d %H:%M"
 
 
 @pytest.mark.parametrize(
@@ -41,41 +35,19 @@ def test_normalize_string(input_string, expected):
         ("20 June 2007", date(2007, 6, 20)),
         ("20th June 27", date(2027, 6, 20)),
         ("June 19 27", date(2027, 6, 19)),
-        (datetime(2005, 1, 1, 12, 3, 1), date(2005, 1, 1)),
         (date(2005, 1, 1), date(2005, 1, 1)),
     ],
 )
 def test_normalize_date(input_obj, expected):
     """Some of these are just exercising `dateutil`, but if I ever stop using
     dateutil I want this test to fail if the replacement does not do the same thing."""
-    assert normalize_date(input_obj) == expected
+    assert normalize_date(input_obj) == expected.strftime(DATE_FMT)
 
 
 @pytest.mark.parametrize("input_obj", [12, time(3, 12, 2), [0, 1, 2]])
 def test_normalize_date_raises_an_error_for_unrecognised_obj(input_obj):
-    with pytest.raises(ValueError, match="Can't normalize this object into a date"):
+    with pytest.raises(ValueError, match=r"Can't normalize this object .* into a date"):
         normalize_date(input_obj)
-
-
-@pytest.mark.parametrize(
-    "input_obj, expected",
-    [
-        ("12:01", time(12, 1).strftime(TIME_FMT)),
-        ("00:01", time(0, 1).strftime(TIME_FMT)),
-        ("03,04,56", time(0, 0, 0).strftime(TIME_FMT)),  # This one reads like a date!
-        ("23:04:56", time(23, 4, 56).strftime(TIME_FMT)),
-        (time(23, 4, 56), time(23, 4, 56).strftime(TIME_FMT)),
-        (datetime(2005, 1, 1, 12, 3, 1), time(12, 3, 1).strftime(TIME_FMT)),
-    ],
-)
-def test_normalize_time(input_obj, expected):
-    assert normalize_time(input_obj) == expected
-
-
-@pytest.mark.parametrize("input_obj", [12, date(3, 12, 2), [0, 1, 2]])
-def test_normalize_time_raises_an_error_for_unrecognised_obj(input_obj):
-    with pytest.raises(ValueError, match="Can't normalize this object into a timestamp"):
-        normalize_time(input_obj)
 
 
 def test_exact_match_after_normalization():
@@ -185,7 +157,6 @@ def test_coerce_to_with_callable():
         ("20 June 2007", date(2007, 6, 20)),
         ("20th June 27", date(2027, 6, 20)),
         ("June 19 27", date(2027, 6, 19)),
-        (datetime(2005, 1, 1, 12, 3, 1), date(2005, 1, 1)),
         (date(2005, 1, 1), date(2005, 1, 1)),
     ],
 )
@@ -194,4 +165,4 @@ def test_coerce_date(input_obj, expected):
     def func(a, b):
         return a, b
 
-    assert func("x", input_obj) == ("x", expected)
+    assert func("x", input_obj) == ("x", expected.strftime(DATE_FMT))
