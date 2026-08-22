@@ -1,15 +1,17 @@
+from datetime import date, time
+
 import pytest
-from datetime import date, datetime, time
+
 from zeni.utils.input_resolution import (
     DATE_FMT,
-    TooManyMatchingStringsError,
     NoMatchingStringsError,
-    normalize_string,
-    normalize_date,
-    resolve,
-    coerce_kwargs,
+    TooManyMatchingStringsError,
     coerce_date,
+    coerce_kwargs,
     coerce_to,
+    normalize_date,
+    normalize_string,
+    resolve,
 )
 
 

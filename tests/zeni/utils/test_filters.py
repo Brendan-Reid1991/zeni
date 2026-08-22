@@ -1,7 +1,8 @@
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
-from zeni.utils.filters import DataframeFilters, filter_rows, filter_dataframe
+
+from zeni.utils.filters import DataframeFilters, filter_dataframe, filter_rows
 
 df = pd.DataFrame(
     [
