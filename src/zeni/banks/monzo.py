@@ -11,6 +11,8 @@ from zeni.banks.bank import IGNORE_COLUMN, Bank
 from zeni.basic_types import Internal, Outgoing, TransactionColumns
 from zeni.utils import filter_dataframe
 
+from .utils import TIMELIKE
+
 
 class Monzo(Bank):
     """Defines parsing rules for Monzo bank statements."""
@@ -18,7 +20,7 @@ class Monzo(Bank):
     COLUMNS = (
         IGNORE_COLUMN,
         TransactionColumns.DATE,
-        TransactionColumns.TIME,
+        TIMELIKE,
         IGNORE_COLUMN,
         TransactionColumns.NAME,
         IGNORE_COLUMN,

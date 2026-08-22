@@ -3,14 +3,13 @@
 import difflib
 import inspect
 from collections.abc import Callable, Iterable, Sequence
-from datetime import date, datetime, time
+from datetime import datetime
 from functools import lru_cache, wraps
 from typing import Any, ParamSpec, TypeVar
 
 from dateutil.parser import parse
 
-DATE_FMT = "%Y-%m-%d"
-TIME_FMT = "%H:%M:%S"
+DATE_FMT = "%Y-%m-%d %H:%M"
 
 
 class NoMatchingStringsError(Exception):
@@ -35,28 +34,13 @@ def normalize_string(candidate: str) -> str:
     return candidate.lower().replace(" ", "").replace(",", "")
 
 
-def normalize_time(val: str | time | datetime) -> str:
-    """Normalize an input to a consistent time format."""
-    match val:
-        case str():
-            return parse(val).strftime(TIME_FMT)
-        case time():
-            return val.strftime(TIME_FMT)
-        case datetime():
-            return val.time().strftime(TIME_FMT)
-        case _:
-            raise ValueError(f"Can't normalize this object into a timestamp: {val}")
-
-
-def normalize_date(val: str | date | datetime) -> date:
+def normalize_date(val: str | datetime) -> str:
     """Normalize an input to a consistent date format."""
     match val:
         case str():
-            return parse(val).date()
+            return parse(val).strftime(DATE_FMT)
         case datetime():
-            return val.date()
-        case date():
-            return val
+            return val.strftime(DATE_FMT)
         case _:
             raise ValueError(f"Can't normalize this object into a date: {val}")
 

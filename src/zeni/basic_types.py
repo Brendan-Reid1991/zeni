@@ -7,11 +7,6 @@ from enum import EnumMeta, StrEnum, auto
 
 class _ZeniEnum(EnumMeta):
     @property
-    def values(cls) -> tuple[str, ...]:
-        """Get the values of the enum as a plain tuple."""
-        return tuple(cls._value2member_map_)
-
-    @property
     def keys(cls) -> tuple[str, ...]:
         """Get the keys of the enum as a pain tuple."""
         return tuple(cls._member_names_)
@@ -74,7 +69,6 @@ class TransactionColumns(StrEnum, metaclass=_ZeniEnum):
     """
 
     DATE = auto()
-    TIME = auto()
     NAME = auto()
     CATEGORY = auto()
     AMOUNT = auto()
@@ -87,8 +81,7 @@ type COLUMN_DTYPES = str | date | time | Decimal | float | int
 _NOW = datetime.now(tz=UTC)
 
 COLUMN_DEFAULTS: dict[TransactionColumns, COLUMN_DTYPES] = {
-    TransactionColumns.DATE: _NOW.date(),
-    TransactionColumns.TIME: _NOW.time(),
+    TransactionColumns.DATE: _NOW,
     TransactionColumns.NAME: "None",
     TransactionColumns.CATEGORY: "None",
     TransactionColumns.AMOUNT: 0,

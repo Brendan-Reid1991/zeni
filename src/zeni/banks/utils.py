@@ -5,10 +5,12 @@ from html import unescape
 import pandas as pd
 
 from zeni.basic_types import TransactionColumns
-from zeni.utils.input_resolution import normalize_date, normalize_time
 
 IGNORE_COLUMN = object()
-"""Filler to ignore a column in a statement."""
+"""Filter to ignore a column in a statement."""
+
+TIMELIKE = object()
+"""Filter to detect a time-like column if it is reported separately."""
 
 
 def standardize_dtypes(
@@ -29,12 +31,6 @@ def standardize_dtypes(
     """
     df = df.copy()
 
-    date_column = TransactionColumns.DATE
-    df[date_column] = df[date_column].apply(normalize_date)
-
-    time_column = TransactionColumns.TIME
-    df[time_column] = df[time_column].apply(normalize_time)
-
     amount_columns = [TransactionColumns.AMOUNT, TransactionColumns.BALANCE]
 
     for col in amount_columns:
@@ -46,8 +42,6 @@ def standardize_dtypes(
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
     for col in df.select_dtypes(include=["object"]).columns:
-        if col == date_column or col == time_column:
-            continue
         df[col] = df[col].map(unescape, na_action="ignore").astype("string")
 
     return df

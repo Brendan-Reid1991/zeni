@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC
 from collections.abc import Callable
 from typing import TYPE_CHECKING, ClassVar
 
 import pandas as pd
 
 from zeni.basic_types import COLUMN_DEFAULTS, TransactionColumns
-from zeni.utils.input_resolution import coerce_to
+from zeni.utils.input_resolution import DATE_FMT, coerce_to, normalize_date
 
-from .utils import IGNORE_COLUMN, standardize_dtypes
+from .utils import IGNORE_COLUMN, TIMELIKE, standardize_dtypes
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -35,11 +34,13 @@ def bank_directory(name: str) -> type[Bank]:
     return BANK_REGISTRY[name]
 
 
-class Bank(ABC):
-    """Abstract base class for all implemented institutions.
+class Bank:
+    """Base class for all implemented institutions.
 
     Subclasses must define the COLUMNS class variable, which maps each column
     in the bank's CSV to a StandardColumn (or IGNORE_COLUMN to drop it).
+
+    If the bank's CSV has header rows, overwrite the HEADER_ROWS class variable.
 
     Optionally, pre- and post-processing steps can be registered via the
     @pre_process and @post_process decorators to transform the statement
@@ -47,6 +48,7 @@ class Bank(ABC):
     """
 
     COLUMNS: ClassVar[tuple[str, ...]]
+    HEADER_ROWS: int = 0
 
     pre_processing_steps: ClassVar[ProcessingStep]
     post_processing_steps: ClassVar[ProcessingStep]
@@ -62,7 +64,7 @@ class Bank(ABC):
 
     @classmethod
     def load(cls, filepath: Path | str) -> pd.DataFrame:
-        return pd.read_csv(filepath)
+        return pd.read_csv(filepath, header=cls.HEADER_ROWS)
 
     @classmethod
     def pre_process(
@@ -103,26 +105,18 @@ class Bank(ABC):
                 " To ignore some columns, populate that index with IGNORE_COLUMN."
             )
 
-        for _, fn in sorted(self.pre_processing_steps, key=lambda x: x[0]):
-            logger.debug(
-                "Running %s pre-processing: %s", type(self).__name__, fn.__name__
-            )
-            statement = fn(statement)
+        statement = self._run_pre_processing(statement)
+
+        statement = self._normalize_datetime(statement)
 
         statement = self._trim(statement)
 
-        for _, fn in sorted(self.post_processing_steps, key=lambda x: x[0]):
-            logger.debug(
-                "Running %s post-processing: %s", type(self).__name__, fn.__name__
-            )
-            statement = fn(statement)
+        statement = self._run_post_processing(statement)
 
         has_balance = TransactionColumns.BALANCE in statement.columns
 
         missing_columns = [
-            col
-            for col, _ in TransactionColumns._value2member_map_.items()
-            if col not in statement.columns
+            col for col in TransactionColumns if col not in statement.columns
         ]
         for missing in missing_columns:
             statement[missing] = pd.Series([COLUMN_DEFAULTS[missing]] * len(statement))
@@ -140,14 +134,47 @@ class Bank(ABC):
 
         return statement
 
+    def _run_pre_processing(self, statement: pd.DataFrame) -> pd.DataFrame:
+        for _, fn in sorted(self.pre_processing_steps, key=lambda x: x[0]):
+            logger.debug(
+                "Running %s pre-processing: %s", type(self).__name__, fn.__name__
+            )
+            statement = fn(statement)
+        return statement
+
+    def _run_post_processing(self, statement: pd.DataFrame) -> pd.DataFrame:
+        for _, fn in sorted(self.post_processing_steps, key=lambda x: x[0]):
+            logger.debug(
+                "Running %s post-processing: %s", type(self).__name__, fn.__name__
+            )
+            statement = fn(statement)
+        return statement
+
     def _trim(self, statement: pd.DataFrame) -> pd.DataFrame:
         """Drop unwanted columns and rename surviving ones."""
         renaming: dict[str, TransactionColumns] = {}
         drop_columns = []
         for current, map_to in zip(statement.columns, self.COLUMNS, strict=False):
-            if map_to is IGNORE_COLUMN:
+            if map_to in [IGNORE_COLUMN, TIMELIKE]:
                 drop_columns.append(current)
                 continue
             renaming[current] = map_to
 
         return statement.drop(columns=drop_columns).rename(columns=renaming)
+
+    def _normalize_datetime(self, statement: pd.DataFrame) -> pd.DataFrame:
+        """Merge the time column into the date column."""
+        date_column = statement.columns[self.COLUMNS.index(TransactionColumns.DATE)]
+        if TIMELIKE in self.COLUMNS:
+            time_column = statement.columns[self.COLUMNS.index(TIMELIKE)]
+            _time_data = statement[time_column].astype(str)
+        else:
+            _time_data = "00:00:00"
+
+        statement[date_column] = pd.to_datetime(
+            (statement[date_column].astype(str) + " " + _time_data).apply(
+                normalize_date
+            ),
+            format=DATE_FMT,
+        )
+        return statement

@@ -25,7 +25,6 @@ class Transaction(ZeniBase):
 
     # Columns
     date: Mapped[date] = mapped_column(sqlt.DateTime, nullable=False, index=True)
-    time: Mapped[str] = mapped_column(sqlt.String(8), nullable=False)
     name: Mapped[str] = mapped_column(sqlt.String(200), nullable=False)
     category: Mapped[str] = mapped_column(sqlt.String(50), nullable=False, index=True)
     amount: Mapped[Decimal] = mapped_column(sqlt.Numeric(12, 2), nullable=False)
@@ -78,7 +77,7 @@ class Transaction(ZeniBase):
     def __repr__(self) -> str:
         return (
             f"<Transaction(id={self.id}, account={self.account_name}, "
-            f"date={self.date.date()}, name={self.name!r}, amount={self.amount})>"
+            f"date={self.date}, name={self.name!r}, amount={self.amount})>"
         )
 
     @classmethod
@@ -91,7 +90,6 @@ class Transaction(ZeniBase):
         return Transaction(
             account_name=account,
             date=data["date"],
-            time=data["time"],
             name=name,
             category=category,
             amount=Decimal(str(data["amount"])).quantize(Decimal("0.01")),

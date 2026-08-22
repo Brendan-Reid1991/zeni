@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pandas as pd
 
 from zeni.banks.bank import Bank
 from zeni.basic_types import Internal, Outgoing, TransactionColumns
 from zeni.utils import filter_dataframe
 
-if TYPE_CHECKING:
-    from pathlib import Path
+from .utils import TIMELIKE
 
 
 class Chase(Bank):
@@ -19,19 +16,14 @@ class Chase(Bank):
 
     COLUMNS = (
         TransactionColumns.DATE,
-        TransactionColumns.TIME,
+        TIMELIKE,
         TransactionColumns.CATEGORY,
         TransactionColumns.NAME,
         TransactionColumns.AMOUNT,
         TransactionColumns.CURRENCY,
         TransactionColumns.BALANCE,
     )
-
-    @classmethod
-    def load(cls, filepath: Path | str) -> pd.DataFrame:
-        """Chase load function needs overwritten to pass in the
-        header=1 argument."""
-        return pd.read_csv(filepath, header=1)
+    HEADER_ROWS = 1
 
 
 @Chase.post_process()
