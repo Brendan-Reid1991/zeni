@@ -35,13 +35,12 @@ def standardize_dtypes(
 
     for col in amount_columns:
         if col in df.columns:
-            if df[col].dtype == "object":
-                df[col] = df[col].astype(str).str.replace("£", "", regex=False)
-                df[col] = df[col].str.replace("$", "", regex=False)
-                df[col] = df[col].str.replace(",", "", regex=False)
-                df[col] = pd.to_numeric(df[col], errors="coerce")
+            df[col] = pd.to_numeric(
+                df[col].astype("string").str.replace(r"[£$,]", "", regex=True),
+                errors="coerce",
+            ).astype("float64")
 
-    for col in df.select_dtypes(include=["object"]).columns:
+    for col in df.select_dtypes(include=["object", "string"]).columns:
         df[col] = df[col].map(unescape, na_action="ignore").astype("string")
 
-    return df
+    return df.convert_dtypes(convert_floating=False)

@@ -26,7 +26,7 @@ from zeni.utils.input_resolution import DATE_FMT, normalize_date
     ],
 )
 def test_bank_directory(input_name, expected_bank):
-    assert bank_directory[input_name] is expected_bank
+    assert bank_directory(input_name) is expected_bank
 
 
 class AllColumnsAndHeader(Bank):
