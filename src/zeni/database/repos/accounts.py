@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from sqlalchemy.orm import Session
+
 from zeni.banks.bank import BANK_REGISTRY
 from zeni.basic_types import AccountType
 from zeni.database.models import Account
@@ -19,7 +21,7 @@ class AccountRepo(Repository[Account]):
         The sqlalchemy session context.
     """
 
-    def __init__(self, session):
+    def __init__(self, session: Session):
         super().__init__(session, Account)
 
     @coerce_to("bank", BANK_REGISTRY)

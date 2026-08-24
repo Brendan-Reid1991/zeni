@@ -4,6 +4,7 @@ from collections.abc import Sequence
 
 import pandas as pd
 from sqlalchemy import insert, inspect, select
+from sqlalchemy.orm import Session
 
 from zeni.banks.bank import BANK_REGISTRY
 from zeni.database.models import Transaction
@@ -13,7 +14,7 @@ from .base_repo import Repository, values_of
 
 
 class TransactionRepo(Repository[Transaction]):
-    def __init__(self, session):
+    def __init__(self, session: Session):
         super().__init__(session, Transaction)
 
     @coerce_to("name", values_of("account_name"))
