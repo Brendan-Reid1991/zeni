@@ -96,7 +96,7 @@ class Bank:
         Returns a new DataFrame; the raw statement stored on the instance
         is not mutated.
         """
-        statement = self._statement
+        statement = self._statement.copy()
 
         if len(self.COLUMNS) != len(statement.columns):
             raise ValueError(
@@ -111,23 +111,20 @@ class Bank:
 
         statement = self._trim(statement)
 
-        statement = self._run_post_processing(statement)
-
-        has_balance = TransactionColumns.BALANCE in statement.columns
-
         missing_columns = [
             col for col in TransactionColumns if col not in statement.columns
         ]
         for missing in missing_columns:
-            statement[missing] = pd.Series([COLUMN_DEFAULTS[missing]] * len(statement))
+            statement[missing] = COLUMN_DEFAULTS[missing]
 
+        statement = self._run_post_processing(statement)
         logger.info(
             "Standardized %d transactions from %s", len(statement), type(self).__name__
         )
         statement = standardize_dtypes(statement[list(map(str, TransactionColumns))])
 
-        if not has_balance:
-            statement = statement.sort_values(TransactionColumns.DATE)
+        statement = statement.sort_values(TransactionColumns.DATE)
+        if TransactionColumns.BALANCE not in self.COLUMNS:
             statement[TransactionColumns.BALANCE] = statement[
                 TransactionColumns.AMOUNT
             ].cumsum()
