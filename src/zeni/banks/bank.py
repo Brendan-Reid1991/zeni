@@ -11,7 +11,7 @@ import pandas as pd
 from zeni.basic_types import COLUMN_DEFAULTS, TransactionColumns
 from zeni.utils.input_resolution import DATE_FMT, coerce_to, normalize_date
 
-from .utils import IGNORE_COLUMN, TIMELIKE, standardize_dtypes
+from .utils import IGNORE_COLUMN, TIMELIKE, ColumnMapping, standardize_dtypes
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -47,7 +47,7 @@ class Bank:
     before and after column trimming.
     """
 
-    COLUMNS: ClassVar[tuple[str, ...]]
+    COLUMNS: ClassVar[tuple[ColumnMapping, ...]]
     HEADER_ROWS: int = 0
 
     pre_processing_steps: ClassVar[ProcessingStep]
@@ -158,7 +158,7 @@ class Bank:
                 logger.debug(f"Dropped column {current} - marked as {map_to}")
                 drop_columns.append(current)
                 continue
-            renaming[current] = map_to
+            renaming[current] = TransactionColumns(map_to)
         return statement.drop(columns=drop_columns).rename(columns=renaming)
 
     def _normalize_datetime(self, statement: pd.DataFrame) -> pd.DataFrame:

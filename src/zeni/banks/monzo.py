@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import pandas as pd
 
-from zeni.banks.bank import IGNORE_COLUMN, Bank
+from zeni.banks.bank import Bank
 from zeni.basic_types import Internal, Outgoing, TransactionColumns
 from zeni.utils import filter_dataframe
 
-from .utils import TIMELIKE
+from .utils import IGNORE_COLUMN, TIMELIKE
 
 
 class Monzo(Bank):

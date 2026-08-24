@@ -4,13 +4,11 @@ from html import unescape
 
 import pandas as pd
 
-from zeni.basic_types import TransactionColumns
+from zeni.basic_types import ColumnFlags, TransactionColumns
 
-IGNORE_COLUMN = object()
-"""Filter to ignore a column in a statement."""
-
-TIMELIKE = object()
-"""Filter to detect a time-like column if it is reported separately."""
+IGNORE_COLUMN = ColumnFlags.IGNORE
+TIMELIKE = ColumnFlags.TIMELIKE
+type ColumnMapping = TransactionColumns | ColumnFlags
 
 
 def standardize_dtypes(
