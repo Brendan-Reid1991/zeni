@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from zeni.banks import Chase, Lloyds, Monzo
+from zeni.banks import Chase, LloydsCC, Monzo
 from zeni.banks.bank import Bank, bank_directory
 from zeni.banks.utils import IGNORE_COLUMN, TIMELIKE
 from zeni.basic_types import TransactionColumns
@@ -16,10 +16,10 @@ from zeni.utils.input_resolution import DATE_FMT, normalize_date
         ["chse", Chase],
         ["Chse", Chase],
         ["Chasse", Chase],
-        ["Loyds", Lloyds],
-        ["lloyds", Lloyds],
-        ["loyds", Lloyds],
-        ["llloyds", Lloyds],
+        ["Loyds", LloydsCC],
+        ["lloyds", LloydsCC],
+        ["loyds", LloydsCC],
+        ["llloyds", LloydsCC],
         ["monzo", Monzo],
         ["mnzo", Monzo],
         ["Monzo", Monzo],
