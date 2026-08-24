@@ -36,18 +36,9 @@ def round_ups(chase_statement: pd.DataFrame) -> pd.DataFrame:
 
 
 @Chase.post_process()
-def classify_payments(chase_statement: pd.DataFrame) -> pd.DataFrame:
-    """Chase does not differentiate between bank payments in or out. This finds
-    all negative bank payments and maps to a BILL."""
-    payments: pd.DataFrame = filter_dataframe(chase_statement, category="^income")
-    outgoing_index = filter_dataframe(payments, amount=lambda x: x < 0).index
-    chase_statement.loc[outgoing_index, TransactionColumns.CATEGORY] = Outgoing.BILL
-    return chase_statement
-
-
-@Chase.post_process()
 def withdrawals(chase_statement: pd.DataFrame) -> pd.DataFrame:
-    """Cash withdrawals can appear in multiple different formats, this unifies them."""
+    """Cash withdrawals can appear in multiple different formats, depending on dispensed
+    currency, this unifies them."""
     payments: pd.DataFrame = filter_dataframe(chase_statement, category="^withdrawal")
     indices = payments.index
     chase_statement.loc[indices, TransactionColumns.CATEGORY] = Outgoing.CASH_WITHDRAWAL
@@ -69,5 +60,5 @@ def foreign_purchases(chase_statement: pd.DataFrame) -> pd.DataFrame:
     )
     fx_mask = fx_info.notna()
     chase_statement.loc[fx_mask, TransactionColumns.NOTES] = fx_info[fx_mask]
-    chase_statement.loc[fx_mask, TransactionColumns.CATEGORY] = Outgoing.LEISURE
+    chase_statement.loc[fx_mask, TransactionColumns.CATEGORY] = "Purchase"
     return chase_statement
