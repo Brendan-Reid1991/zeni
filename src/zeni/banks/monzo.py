@@ -50,8 +50,9 @@ def flex_payments(statement: pd.DataFrame) -> pd.DataFrame:
 
 @Monzo.post_process()
 def overdraft_fees(statement: pd.DataFrame) -> pd.DataFrame:
-    """Overdraft fees are registered as an UNCATEGORISED payment, this step
-    appropriately changes the category to FEE."""
+    """Overdraft fees are not given by name by monzo, and it's type is set to "General".
+    This processing step changes the category to Outgoing.FEE.
+    """
     overdraft_rows = filter_dataframe(statement, notes="^overdraft").index
     statement.loc[overdraft_rows, TransactionColumns.NAME] = "Overdraft fees"
     statement.loc[overdraft_rows, TransactionColumns.CATEGORY] = Outgoing.FEE
