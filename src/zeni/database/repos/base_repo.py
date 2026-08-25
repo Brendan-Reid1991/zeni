@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from functools import lru_cache
+from inspect import getsource
 
 import pandas as pd
 from sqlalchemy import func, inspect, select
 from sqlalchemy.orm import Session
 
 from zeni.basic_types import TransactionColumns
-from zeni.database.models import Model
+from zeni.database.models import ZeniBase
 from zeni.utils.filters import Entry
 from zeni.utils.input_resolution import coerce_date, coerce_kwargs
 
@@ -16,34 +17,34 @@ from .utils import filter_query
 
 
 @lru_cache
-def _model_columns(model: type[Model]) -> tuple[str, ...]:
+def _model_columns(model: type[ZeniBase]) -> tuple[str, ...]:
     """Cached private function to return the columns of a table."""
     return tuple(inspect(model).columns.keys())
 
 
-def columns(repo: Repository) -> tuple[str, ...]:
+def columns[T: ZeniBase](repo: Repository[T]) -> tuple[str, ...]:
     """Callable for passing into a coerce_kwargs decorator."""
     return _model_columns(repo.table)
 
 
-def values_of(field: str) -> Callable[[Repository], tuple[str, ...]]:
+def values_of[T: ZeniBase](field: str) -> Callable[[Repository[T]], tuple[str, ...]]:
     """Returns a callable that inspects the existing elements of `field`
     in the repository's `table`."""
 
-    def _valid_values(repo: Repository) -> tuple[str, ...]:
+    def _valid_values(repo: Repository[T]) -> tuple[str, ...]:
         return tuple(repo.elements_of(field))
 
     return _valid_values
 
 
-class Repository[T: Model]:
+class Repository[T: ZeniBase]:
     """A basic repository for handling table data.
 
     Parameters
     ----------
     session: Session
         The sqlalchemy session context.
-    table: Model
+    table: ZeniBase
         Which table this repository is for.
     """
 
@@ -88,8 +89,12 @@ class Repository[T: Model]:
         statement = filter_query(select(self.table), self.table, **filters)
         if entries := self.session.scalars(statement).all():
             return entries
-
-        _as_list = "\n\t- ".join(f"{key} = {value}" for key, value in filters.items())
+        _as_list = "\n\t- ".join(
+            f"{key} = {getsource(value).strip()}"
+            if callable(value)
+            else f"{key} = {value}"
+            for key, value in filters.items()
+        )
         raise ValueError(
             f"No '{self.table.__name__}' entries satisfy the following conditions:"
             "\n\t- " + _as_list

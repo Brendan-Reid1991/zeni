@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import ColumnElement, Select
 from sqlalchemy.orm.attributes import QueryableAttribute
 
-from zeni.database.models import ModelT
+from zeni.database.models import ZeniBase
 from zeni.utils.filters import HAS, NOT, Entry
 
 type Predicate = Callable[[QueryableAttribute], ColumnElement[bool]]
@@ -45,7 +45,9 @@ class DatabaseFilters:
         return predicate(column)
 
 
-def filter_query(statement: Select, model: ModelT, **kwargs: DatabaseFilterT) -> Select:
+def filter_query(
+    statement: Select, model: type[ZeniBase], **kwargs: DatabaseFilterT
+) -> Select:
     """Apply filters to a SQLAlchemy select statement.
 
     Mirrors the pattern-matching approach of filter_dataframe, but produces
@@ -55,7 +57,7 @@ def filter_query(statement: Select, model: ModelT, **kwargs: DatabaseFilterT) ->
     ----------
     stmt : Select
         A SQLAlchemy select statement.
-    model : type[DeclarativeBase]
+    model : type[ZeniBase]
         The ORM model to resolve column names against.
 
     Returns
@@ -64,7 +66,7 @@ def filter_query(statement: Select, model: ModelT, **kwargs: DatabaseFilterT) ->
         The filtered select statement.
     """
     for col_name, setting in kwargs.items():
-        column = getattr(model, col_name)
+        column: QueryableAttribute = getattr(model, col_name)
         match setting:
             case tuple():
                 statement = statement.where(DatabaseFilters.between(column, setting))
