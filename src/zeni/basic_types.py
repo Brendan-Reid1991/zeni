@@ -77,6 +77,14 @@ class TransactionColumns(StrEnum, metaclass=_ZeniEnum):
     NOTES = auto()
 
 
+class ColumnFlags(StrEnum, metaclass=_ZeniEnum):
+    IGNORE = auto()
+    """Flag to ignore a column in a statement."""
+
+    TIMELIKE = auto()
+    """Flag to detect a time-like column if it is reported separately."""
+
+
 type COLUMN_DTYPES = str | date | time | Decimal | float | int
 _NOW = datetime.now(tz=UTC)
 
