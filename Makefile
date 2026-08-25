@@ -35,11 +35,11 @@ install: ## Sync runtime + dev dependencies
 install-all: ## Sync all dependency groups
 	$(UV) sync --all-groups
 
-lint: ## Lint (no writes)
-	$(UV) run $(RUFF) check $(CODE) $(TESTS)
-
-lint-fix: ## Lint and fix
+lint: ## Lint with safe fixes
 	$(UV) run $(RUFF) check $(CODE) $(TESTS) --fix
+
+lint-check: ## Lint check
+	$(UV) run $(RUFF) check $(CODE) $(TESTS)
 
 format: ## Auto-format code
 	$(UV) run $(RUFF) format $(CODE)
@@ -51,13 +51,13 @@ fmt-check: ## Check formatting without writing
 typing: ## Run the typing checks
 	$(UV) run $(MYPY) $(CODE)
 
-test: ## Run test suite
+coverage: ## Run test suite and get a coverage report
 	$(UV) run pytest --cov=src --cov-fail-under=95 --cov-report term-missing --disable-warnings
 
 ci: ## Lint + format check + tests (for CI pipelines)
 	$(MAKE) lint
 	$(MAKE) fmt-check
-	$(MAKE) test
+	$(MAKE) coverage
 
 lock: ## Update lockfile (re-resolve)
 	$(UV) lock
