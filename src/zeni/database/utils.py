@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,7 +33,7 @@ class Workspace:
 
     @classmethod
     @contextmanager
-    def open(cls, engine: Engine):
+    def open(cls, engine: Engine) -> Generator[Workspace]:
         with Session(engine) as session, session.begin():
             yield cls(session, AccountRepo(session), TransactionRepo(session))
 
