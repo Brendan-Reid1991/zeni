@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import operator
+import re
+from ast import literal_eval
 from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
@@ -186,6 +189,22 @@ NOT = "!"
 """Substring exclusion."""
 
 
+def preprocess_string_values[P, R](function: Callable[[P], R]) -> Callable[[P], R]:
+    """Preprocess string inputs into predicates, if possible."""
+
+    def _inner(*args: P.args, **kwargs: P.kwargs) -> R:
+        for field, setting in kwargs.items():
+            if isinstance(setting, str):
+                try:
+                    pred = convert_string_to_predicate(setting)
+                    kwargs |= {field: pred}
+                except ValueError as _:
+                    pass
+        return function(*args, **kwargs)
+
+    return _inner
+
+
 @map_column_name
 def filter_rows(dataframe: pd.DataFrame, column: str, settings: FilterT) -> pd.DataFrame:
     """Filter rows of a dataframe by supplying a column name and setting.
@@ -241,6 +260,7 @@ def filter_rows(dataframe: pd.DataFrame, column: str, settings: FilterT) -> pd.D
             )
 
 
+@preprocess_string_values
 def filter_dataframe(dataframe: pd.DataFrame, **kwargs: FilterT) -> pd.DataFrame:
     """Access point for multi-setting filtering of dataframes.
 
@@ -261,3 +281,32 @@ def filter_dataframe(dataframe: pd.DataFrame, **kwargs: FilterT) -> pd.DataFrame
         df = filter_rows(df, column, setting)
 
     return df
+
+
+OPERATORS = {
+    ">": operator.gt,
+    ">=": operator.ge,
+    "<": operator.lt,
+    "<=": operator.le,
+    "==": operator.eq,
+    "!=": operator.ne,
+}
+
+COMPARATORS = re.compile(r"\s*(>=|<=|==|!=|>|<)\s*(.+?)\s*")
+WITHIN_RANGE = re.compile(r"\s*([+-]?\d+(?:\.\d+)?)\((\d*\.?\d+)\)\s*")
+
+
+def convert_string_to_predicate(input_string: str) -> Callable[..., BooleanArray]:
+    """Convert a string to a predicate. This function allows syntactic sugar,
+    such as `x = "<=10"` instead of `x = lambda x: x <= 10`.
+    """
+    if (range_match := WITHIN_RANGE.fullmatch(input_string)) is not None:
+        anchor, plus_minus = range_match.groups()
+        return lambda candidate: abs(literal_eval(anchor) - candidate) <= literal_eval(
+            plus_minus
+        )
+    match = COMPARATORS.fullmatch(input_string)
+    if match is None:
+        raise ValueError(f"Invalid string to convert to a predicate: {input_string}")
+    op, value = match.groups()
+    return lambda candidate: OPERATORS[op](candidate, literal_eval(value))
