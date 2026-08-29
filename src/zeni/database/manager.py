@@ -9,7 +9,7 @@ from typing import Concatenate
 import pandas as pd
 
 from zeni.banks import bank_directory
-from zeni.basic_types import AccountType
+from zeni.basic_types import AccountType, TransactionColumns
 from zeni.utils.input_resolution import coerce_datetime, coerce_to
 
 from .engine import Engineer
@@ -103,10 +103,15 @@ class Manager:
         )
 
     @transactional
-    def retrieve_transactions(self, workspace: Workspace, **filters) -> pd.DataFrame:
-        return pd.DataFrame.from_records(
+    def retrieve_transactions(
+        self, workspace: Workspace, show_metadata: bool = False, **filters
+    ) -> pd.DataFrame:
+        df = pd.DataFrame.from_records(
             [tx.to_dict() for tx in workspace.transactions.filter(**filters)]
         )
+        if show_metadata:
+            return df
+        return df[[col for col in TransactionColumns] + ["account_name"]]
 
     @transactional
     @coerce_datetime("from_date", "to_date")
