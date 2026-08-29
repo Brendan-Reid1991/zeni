@@ -5,7 +5,7 @@ from sqlalchemy import ColumnElement, Select, func
 from sqlalchemy.orm.attributes import QueryableAttribute
 
 from zeni.database.models import ZeniBase
-from zeni.utils.filters import HAS, NOT, Entry
+from zeni.utils.filters import HAS, NOT, Entry, preprocess_string_values
 
 type Predicate = Callable[[QueryableAttribute], ColumnElement[bool]]
 """A callable that receives a column and returns a SQLAlchemy boolean expression."""
@@ -47,6 +47,7 @@ class DatabaseFilters:
         return predicate(column)
 
 
+@preprocess_string_values
 def filter_query(
     statement: Select, model: type[ZeniBase], **kwargs: DatabaseFilterT
 ) -> Select:
