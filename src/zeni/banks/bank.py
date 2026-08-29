@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, ClassVar
 import pandas as pd
 
 from zeni.basic_types import COLUMN_DEFAULTS, TransactionColumns
-from zeni.utils.input_resolution import DATE_FMT, coerce_to, normalize_date
+from zeni.utils.input_resolution import coerce_to, parse_datetime
 
 from .utils import IGNORE_COLUMN, TIMELIKE, ColumnMapping, standardize_dtypes
 
@@ -168,16 +168,9 @@ class Bank:
         If it does not, append midnight onto the dates.
         """
         date_column = statement.columns[self.COLUMNS.index(TransactionColumns.DATE)]
+        values = statement[date_column].astype("string")
         if TIMELIKE in self.COLUMNS:
             time_column = statement.columns[self.COLUMNS.index(TIMELIKE)]
-            _time_data = statement[time_column].astype(str)
-        else:
-            _time_data = "00:00:00"
-
-        statement[date_column] = pd.to_datetime(
-            (statement[date_column].astype(str) + " " + _time_data).apply(
-                normalize_date
-            ),
-            format=DATE_FMT,
-        )
+            values = values + " " + statement[time_column].astype("string")
+        statement[date_column] = values.map(parse_datetime)
         return statement

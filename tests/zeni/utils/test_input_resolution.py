@@ -1,22 +1,17 @@
-from datetime import date, time
+from datetime import date, datetime, time
 
 import pytest
 
 from zeni.utils.input_resolution import (
-    DATE_FMT,
     NoMatchingStringsError,
     TooManyMatchingStringsError,
-    coerce_date,
+    coerce_datetime,
     coerce_kwargs,
     coerce_to,
-    normalize_date,
     normalize_string,
+    parse_datetime,
     resolve,
 )
-
-
-def test_date_fmt():
-    assert DATE_FMT == "%Y-%m-%d %H:%M"
 
 
 @pytest.mark.parametrize(
@@ -34,22 +29,30 @@ def test_normalize_string(input_string, expected):
 @pytest.mark.parametrize(
     "input_obj, expected",
     [
-        ("20 June 2007", date(2007, 6, 20)),
-        ("20th June 27", date(2027, 6, 20)),
-        ("June 19 27", date(2027, 6, 19)),
-        (date(2005, 1, 1), date(2005, 1, 1)),
+        ("20 June 2007", datetime(2007, 6, 20)),
+        ("20th June 27", datetime(2027, 6, 20)),
+        ("June 19 27", datetime(2027, 6, 19)),
+        ("01/05/2025", datetime(2025, 5, 1)),
+        ("01/05/2025 02:01:58", datetime(2025, 5, 1, 2, 1, 58)),
+        (date(2005, 1, 1), datetime(2005, 1, 1)),
     ],
 )
-def test_normalize_date(input_obj, expected):
+def test_parse_datetime(input_obj, expected):
     """Some of these are just exercising `dateutil`, but if I ever stop using
     dateutil I want this test to fail if the replacement does not do the same thing."""
-    assert normalize_date(input_obj) == expected.strftime(DATE_FMT)
+    assert parse_datetime(input_obj) == expected
+
+
+def test_parse_datetime_preserves_datetime_objects():
+    value = datetime(2005, 1, 1, 12, 3, 1)
+
+    assert parse_datetime(value) is value
 
 
 @pytest.mark.parametrize("input_obj", [12, time(3, 12, 2), [0, 1, 2]])
-def test_normalize_date_raises_an_error_for_unrecognised_obj(input_obj):
-    with pytest.raises(ValueError, match=r"Can't normalize this object .* into a date"):
-        normalize_date(input_obj)
+def test_parse_datetime_raises_an_error_for_unrecognised_obj(input_obj):
+    with pytest.raises(TypeError, match=r"Cannot parse .* as a datetime"):
+        parse_datetime(input_obj)
 
 
 def test_exact_match_after_normalization():
@@ -156,15 +159,15 @@ def test_coerce_to_with_callable():
 @pytest.mark.parametrize(
     "input_obj, expected",
     [
-        ("20 June 2007", date(2007, 6, 20)),
-        ("20th June 27", date(2027, 6, 20)),
-        ("June 19 27", date(2027, 6, 19)),
-        (date(2005, 1, 1), date(2005, 1, 1)),
+        ("20 June 2007", datetime(2007, 6, 20)),
+        ("20th June 27", datetime(2027, 6, 20)),
+        ("June 19 27", datetime(2027, 6, 19)),
+        (date(2005, 1, 1), datetime(2005, 1, 1)),
     ],
 )
-def test_coerce_date(input_obj, expected):
-    @coerce_date("b")
+def test_coerce_datetime(input_obj, expected):
+    @coerce_datetime("b")
     def func(a, b):
         return a, b
 
-    assert func("x", input_obj) == ("x", expected.strftime(DATE_FMT))
+    assert func("x", input_obj) == ("x", expected)

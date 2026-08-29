@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -24,7 +24,7 @@ class Transaction(ZeniBase):
     __tablename__ = "transactions"
 
     # Columns
-    date: Mapped[date] = mapped_column(sqlt.DateTime, nullable=False, index=True)
+    date: Mapped[datetime] = mapped_column(sqlt.DateTime, nullable=False, index=True)
     name: Mapped[str] = mapped_column(sqlt.String(200), nullable=False)
     category: Mapped[str] = mapped_column(sqlt.String(50), nullable=False, index=True)
     amount: Mapped[Decimal] = mapped_column(sqlt.Numeric(12, 2), nullable=False)

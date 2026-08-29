@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from zeni.basic_types import TransactionColumns
 from zeni.database.models import ZeniBase
 from zeni.utils.filters import Entry
-from zeni.utils.input_resolution import coerce_date, coerce_kwargs
+from zeni.utils.input_resolution import coerce_datetime, coerce_kwargs
 
 from .utils import filter_query
 
@@ -72,7 +72,7 @@ class Repository[T: ZeniBase]:
         return self.session.scalars(select(getattr(self.table, field))).all()
 
     @coerce_kwargs(columns)
-    @coerce_date(TransactionColumns.DATE)
+    @coerce_datetime(TransactionColumns.DATE)
     def filter(self, **filters: Entry) -> Sequence[T]:
         """Apply filters to the table and return those objects that satisfy the query.
 

@@ -3,13 +3,11 @@
 import difflib
 import inspect
 from collections.abc import Callable, Iterable, Sequence
-from datetime import date, datetime
+from datetime import date, datetime, time
 from functools import lru_cache, wraps
 from typing import Any, ParamSpec, TypeVar
 
 from dateutil.parser import parse
-
-DATE_FMT = "%Y-%m-%d %H:%M"
 
 
 class NoMatchingStringsError(Exception):
@@ -34,16 +32,18 @@ def normalize_string(candidate: str) -> str:
     return candidate.lower().replace(" ", "").replace(",", "")
 
 
-def normalize_date(val: str | datetime) -> str:
-    """Normalize an input to a consistent date format."""
-    match val:
+def parse_datetime(value: str | date | datetime) -> datetime:
+    """Standardize a string, date or datetime value into a datetime object."""
+    match value:
+        case datetime():
+            return value
+        case date():
+            return datetime.combine(value, time.min)
         case str():
-            return parse(val).strftime(DATE_FMT)
-        case datetime() | date():
-            return val.strftime(DATE_FMT)
+            return parse(value, dayfirst=True)
         case _:
-            raise ValueError(
-                f"Can't normalize this object (type {type(val)}) into a date: {val}"
+            raise TypeError(
+                f"Cannot parse {type(value).__name__} as a datetime: {value!r}"
             )
 
 
@@ -205,13 +205,11 @@ def coerce_to(
     return decorator
 
 
-def coerce_date(*args: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def coerce_datetime(*args: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """A decorator to coerce the input data to `args` into a consistent datetime format.
 
     `args` should be field names on the decorated function. The input to those fields
     will be coerced by `dateutil.parser.parse`.
-
-    We assume European-style date notation, i.e. 01/02/27 is the 1st Feb 2027.
     """
 
     def decorator(function: Callable[P, R]) -> Callable[P, R]:
@@ -226,7 +224,7 @@ def coerce_date(*args: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
             # functions that accept optional date input, i.e. via **kwargs.
             rewrite: set[str] = set(args) & bound.arguments.keys()
             for field in rewrite:
-                bound.arguments[field] = normalize_date(bound.arguments[field])
+                bound.arguments[field] = parse_datetime(bound.arguments[field])
             return function(*bound.args, **bound.kwargs)
 
         return _inner

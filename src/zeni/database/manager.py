@@ -10,7 +10,7 @@ import pandas as pd
 
 from zeni.banks import bank_directory
 from zeni.basic_types import AccountType
-from zeni.utils.input_resolution import coerce_date, coerce_to
+from zeni.utils.input_resolution import coerce_datetime, coerce_to
 
 from .engine import Engineer
 from .models import ImportedStatement
@@ -64,6 +64,8 @@ class Manager:
         bank: str,
         account_type: AccountType = AccountType.CURRENT,
     ):
+        if name in self.accounts:
+            raise ValueError(f"Account with name '{name}' already exists.")
         workspace.accounts.add_account(name, bank, account_type)
 
     def _register_statement(
@@ -107,7 +109,7 @@ class Manager:
         )
 
     @transactional
-    @coerce_date("from_date", "to_date")
+    @coerce_datetime("from_date", "to_date")
     def transactions_in_date_range(
         self, workspace: Workspace, from_date: str | datetime, to_date: str | datetime
     ) -> pd.DataFrame:

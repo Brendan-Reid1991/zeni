@@ -6,7 +6,6 @@ from zeni.banks import Chase, LloydsCC, Monzo
 from zeni.banks.bank import Bank, bank_directory
 from zeni.banks.utils import IGNORE_COLUMN, TIMELIKE
 from zeni.basic_types import TransactionColumns
-from zeni.utils.input_resolution import DATE_FMT, normalize_date
 
 
 @pytest.mark.parametrize(
@@ -159,20 +158,18 @@ def test_trim(bank, data):
 
 
 def test_normalize_datetime(bank, data):
-    orig = bank.load(data)
     standardized = bank(data).standardize()
 
-    date_column = orig.columns[bank.COLUMNS.index(TransactionColumns.DATE)]
-    if TIMELIKE in bank.COLUMNS:
-        time_column = orig.columns[bank.COLUMNS.index(TIMELIKE)]
-        _time_data = orig[time_column].astype(str)
-    else:
-        _time_data = "00:00:00"
+    expected_values = {
+        AllColumnsAndHeader: ["2025-05-17 10:54:00"],
+        TooFewColumns: ["2026-02-25 00:00:00"] * 3,
+        ManyColumnsIgnored: ["2025-05-01 02:01:58"],
+    }
     pd.testing.assert_series_equal(
-        pd.to_datetime(
-            (orig[date_column].astype(str) + " " + _time_data).apply(normalize_date),
-            format=DATE_FMT,
-        ).rename(TransactionColumns.DATE),
+        pd.Series(
+            pd.to_datetime(expected_values[bank]),
+            name=TransactionColumns.DATE,
+        ),
         standardized[TransactionColumns.DATE],
     )
 
