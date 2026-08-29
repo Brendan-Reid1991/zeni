@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 from decimal import Decimal
 from functools import wraps
 
@@ -29,7 +30,7 @@ def map_column_name(
     return inner
 
 
-type Entry = Decimal | str | float
+type Entry = Decimal | str | float | datetime | bool
 """Generic dataframe entry."""
 
 type BooleanArray = pd.Series | npt.NDArray[np.bool] | list[bool] | tuple[bool, ...]
