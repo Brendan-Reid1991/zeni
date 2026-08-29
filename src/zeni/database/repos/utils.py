@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from decimal import Decimal
 
-from sqlalchemy import ColumnElement, Select
+from sqlalchemy import ColumnElement, Select, func
 from sqlalchemy.orm.attributes import QueryableAttribute
 
 from zeni.database.models import ZeniBase
@@ -19,6 +19,8 @@ class DatabaseFilters:
 
     @staticmethod
     def equals(column: QueryableAttribute, value: Entry) -> ColumnElement[bool]:
+        if isinstance(value, str):
+            return func.lower(column) == func.lower(value)
         return column == value
 
     @staticmethod
