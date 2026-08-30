@@ -301,9 +301,14 @@ def convert_string_to_predicate(input_string: str) -> Callable[..., BooleanArray
     such as `x = "<=10"` instead of `x = lambda x: x <= 10`.
     """
     if (range_match := WITHIN_RANGE.fullmatch(input_string)) is not None:
-        anchor, plus_minus = range_match.groups()
-        return lambda candidate: abs(literal_eval(anchor) - candidate) <= literal_eval(
-            plus_minus
+        _anchor, _plus_minus = range_match.groups()
+        anchor = literal_eval(_anchor)
+        plus_minus = literal_eval(_plus_minus)
+        # This form of the lambda allows SQLAlchemy to use it as well,
+        # versus abs(candidate-anchor) <= plus_minus which requires sqlalchemy.func.abs
+        # to work properly.
+        return lambda candidate: (
+            (candidate >= anchor - plus_minus) & (candidate <= anchor + plus_minus)
         )
     match = COMPARATORS.fullmatch(input_string)
     if match is None:
