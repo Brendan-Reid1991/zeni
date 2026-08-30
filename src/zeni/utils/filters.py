@@ -298,7 +298,7 @@ WITHIN_RANGE = re.compile(r"\s*([+-]?\d+(?:\.\d+)?)\((\d*\.?\d+)\)\s*")
 
 def convert_string_to_predicate(input_string: str) -> Callable[..., BooleanArray]:
     """Convert a string to a predicate. This function allows syntactic sugar,
-    such as `x = "<=10"` instead of `x = lambda x: x <= 10`.
+    such as `field = "<=10"` instead of `field = lambda x: x <= 10`.
     """
     if (range_match := WITHIN_RANGE.fullmatch(input_string)) is not None:
         _anchor, _plus_minus = range_match.groups()
