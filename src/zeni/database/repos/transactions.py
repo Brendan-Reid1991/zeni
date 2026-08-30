@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from zeni.banks.bank import BANK_REGISTRY
 from zeni.database.models import Transaction
-from zeni.utils.input_resolution import coerce_to
+from zeni.utils.input_resolution import resolve_argument
 
 from .base_repo import Repository, values_of
 
@@ -19,12 +19,12 @@ class TransactionRepo(Repository[Transaction]):
     def __init__(self, session: Session):
         super().__init__(session, Transaction)
 
-    @coerce_to("name", values_of("account_name"))
+    @resolve_argument("name", values_of("account_name"))
     def from_account(self, name: str) -> Sequence[Transaction]:
         """Get all transactions from the given account name."""
         return self.filter(account_name=name)
 
-    @coerce_to("bank", BANK_REGISTRY)
+    @resolve_argument("bank", BANK_REGISTRY)
     def from_bank(self, bank: str) -> Sequence[Transaction]:
         """Get all transactions from the given bank."""
         return self.session.scalars(

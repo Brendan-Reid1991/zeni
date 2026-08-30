@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from zeni.banks.bank import BANK_REGISTRY
 from zeni.basic_types import AccountType
 from zeni.database.models import Account
-from zeni.utils.input_resolution import coerce_to
+from zeni.utils.input_resolution import resolve_argument
 
 from .base_repo import Repository, values_of
 
@@ -24,7 +24,7 @@ class AccountRepo(Repository[Account]):
     def __init__(self, session: Session):
         super().__init__(session, Account)
 
-    @coerce_to("bank", BANK_REGISTRY)
+    @resolve_argument("bank", BANK_REGISTRY)
     def add_account(
         self, name: str, bank: str, account_type: AccountType = AccountType.CURRENT
     ) -> None:
@@ -41,7 +41,7 @@ class AccountRepo(Repository[Account]):
         """
         self.session.add(Account(name=name, bank=bank, account_type=account_type))
 
-    @coerce_to("name", values_of("name"))
+    @resolve_argument("name", values_of("name"))
     def from_name(self, name: str) -> Account:
         """Retrieve an account given it's name.
 
@@ -68,7 +68,7 @@ class AccountRepo(Repository[Account]):
         """
         return tuple(self.elements_of("name"))
 
-    @coerce_to("bank", BANK_REGISTRY)
+    @resolve_argument("bank", BANK_REGISTRY)
     def with_bank(self, bank: str) -> tuple[str, ...]:
         """Return all account names with the provided bank.
 

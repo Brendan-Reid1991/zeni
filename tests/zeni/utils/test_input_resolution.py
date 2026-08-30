@@ -5,12 +5,12 @@ import pytest
 from zeni.utils.input_resolution import (
     NoMatchingStringsError,
     TooManyMatchingStringsError,
-    coerce_datetime,
-    coerce_kwargs,
-    coerce_to,
+    coerce_datetimes,
     normalize_string,
     parse_datetime,
     resolve,
+    resolve_argument,
+    resolve_keyword_names,
 )
 
 
@@ -95,7 +95,7 @@ def test_zero_difflib_multiple_substring_raises_too_many(input_str, candidates):
 
 
 def test_coerce_kwargs_with_iterable():
-    @coerce_kwargs(
+    @resolve_keyword_names(
         valid_fields=(
             "one",
             "two",
@@ -117,7 +117,7 @@ def test_coerce_kwargs_with_callable():
     class A:
         fields = ("one", "two")
 
-        @coerce_kwargs(lambda self: self.fields)
+        @resolve_keyword_names(lambda self: self.fields)
         def func(self, **kwargs):
             return kwargs
 
@@ -129,7 +129,7 @@ def test_coerce_kwargs_with_callable():
 
 
 def test_coerce_to_with_iterable():
-    @coerce_to("second_arg", ("one", "two"))
+    @resolve_argument("second_arg", ("one", "two"))
     def func(first_arg, second_arg):
         return first_arg, second_arg
 
@@ -144,7 +144,7 @@ def test_coerce_to_with_callable():
     class A:
         fields = ("one", "two")
 
-        @coerce_to("argument", lambda self: self.fields)
+        @resolve_argument("argument", lambda self: self.fields)
         def func(self, argument):
             return argument
 
@@ -166,7 +166,7 @@ def test_coerce_to_with_callable():
     ],
 )
 def test_coerce_datetime(input_obj, expected):
-    @coerce_datetime("b")
+    @coerce_datetimes("b")
     def func(a, b):
         return a, b
 

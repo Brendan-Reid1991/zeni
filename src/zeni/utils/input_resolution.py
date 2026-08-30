@@ -154,7 +154,7 @@ def _materialize(source: CandidateSource, args: tuple[Any, ...]) -> tuple[str, .
     return tuple(source)
 
 
-def coerce_kwargs(
+def resolve_keyword_names(
     valid_fields: CandidateSource,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """A decorator to coerce kwargs of a function call to a set of valid field names."""
@@ -182,7 +182,7 @@ def coerce_kwargs(
     return decorator
 
 
-def coerce_to(
+def resolve_argument(
     field: str, candidates: CandidateSource
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator to ensure that the argument provided to `field` is a member
@@ -205,7 +205,7 @@ def coerce_to(
     return decorator
 
 
-def coerce_datetime(*args: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def coerce_datetimes(*args: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """A decorator to coerce the input data to `args` into a consistent datetime format.
 
     `args` should be field names on the decorated function. The input to those fields

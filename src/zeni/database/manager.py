@@ -10,7 +10,7 @@ import pandas as pd
 
 from zeni.banks import bank_directory
 from zeni.basic_types import AccountType, TransactionColumns
-from zeni.utils.input_resolution import coerce_datetime, coerce_to
+from zeni.utils.input_resolution import coerce_datetimes, resolve_argument
 
 from .engine import Engineer
 from .models import ImportedStatement
@@ -77,7 +77,7 @@ class Manager:
         return imported.id
 
     @transactional
-    @coerce_to("account", lambda self: self.accounts)
+    @resolve_argument("account", lambda self: self.accounts)
     def import_statement(
         self,
         workspace: Workspace,
@@ -114,8 +114,14 @@ class Manager:
         return df[[col for col in TransactionColumns] + ["account_name"]]
 
     @transactional
-    @coerce_datetime("from_date", "to_date")
+    @coerce_datetimes("from_date", "to_date")
     def transactions_in_date_range(
-        self, workspace: Workspace, from_date: str | datetime, to_date: str | datetime
+        self,
+        workspace: Workspace,
+        from_date: str | datetime,
+        to_date: str | datetime,
+        show_metadata: bool = False,
     ) -> pd.DataFrame:
-        pass
+        return self.retrieve_transactions(
+            show_metadata=show_metadata, date=(from_date, to_date)
+        )

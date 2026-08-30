@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, ClassVar
 import pandas as pd
 
 from zeni.basic_types import COLUMN_DEFAULTS, TransactionColumns
-from zeni.utils.input_resolution import coerce_to, parse_datetime
+from zeni.utils.input_resolution import parse_datetime, resolve_argument
 
 from .utils import IGNORE_COLUMN, TIMELIKE, ColumnMapping, standardize_dtypes
 
@@ -28,7 +28,7 @@ BANK_REGISTRY: dict[str, type[Bank]] = {}
 must be imported into the zeni/bank/__init__.py"""
 
 
-@coerce_to("name", BANK_REGISTRY)
+@resolve_argument("name", BANK_REGISTRY)
 def bank_directory(name: str) -> type[Bank]:
     """Return the Bank class for the input bank name."""
     return BANK_REGISTRY[name]
